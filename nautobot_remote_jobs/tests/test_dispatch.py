@@ -41,6 +41,34 @@ class SubmissionTest(TestCase):
         with self.assertRaises(SubmissionError):
             submit_run(definition, self.user, {}, dryrun=True)
 
+    def test_fanout_device_cap_enforced(self):
+        # Security/DoS: a per_device submission cannot expand into an unbounded
+        # number of child runs in one transaction.
+        from django.test import override_settings
+
+        from nautobot_remote_jobs.choices import ZonePolicyChoices
+
+        definition = make_definition(
+            zone=self.zone,
+            zone_policy=ZonePolicyChoices.PER_DEVICE,
+            input_schema={
+                "type": "object",
+                "properties": {"devices": {"type": "array", "x-remote-jobs-target": "device"}},
+            },
+        )
+        many = [str(__import__("uuid").uuid4()) for _ in range(6)]
+        with override_settings():
+            from django.conf import settings
+
+            settings.PLUGINS_CONFIG["nautobot_remote_jobs"]["fanout_max_devices"] = 5
+            try:
+                run = submit_run(definition, self.user, {"devices": many})
+            finally:
+                settings.PLUGINS_CONFIG["nautobot_remote_jobs"].pop("fanout_max_devices", None)
+        # Parent run fails dispatch with an explanatory log rather than creating rows.
+        self.assertEqual(run.state, RunStateChoices.FAILED_DISPATCH)
+        self.assertFalse(run.children.exists())
+
     def test_input_validation(self):
         definition = make_definition(
             zone=self.zone,

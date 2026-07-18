@@ -41,6 +41,13 @@ class WorkerSerializer(NautobotModelSerializer):
     class Meta:
         model = models.Worker
         fields = "__all__"
+        # Session-credential material must never appear in API responses:
+        # identity_fingerprint is sha256(session_secret) and secret_generation
+        # is the rotation counter; write_only keeps them out of GET output.
+        extra_kwargs = {
+            "identity_fingerprint": {"write_only": True, "required": False},
+            "secret_generation": {"write_only": True, "required": False},
+        }
 
 
 class WorkerEnrollmentTokenSerializer(NautobotModelSerializer):
@@ -52,7 +59,9 @@ class WorkerEnrollmentTokenSerializer(NautobotModelSerializer):
         model = models.WorkerEnrollmentToken
         fields = "__all__"
         extra_kwargs = {
-            "token_hash": {"read_only": True},
+            # write_only (not read_only) keeps the token hash out of API
+            # responses; read_only fields are still serialized on output.
+            "token_hash": {"write_only": True, "required": False},
             "used_at": {"read_only": True},
             "worker": {"read_only": True},
             "created_by": {"read_only": True},

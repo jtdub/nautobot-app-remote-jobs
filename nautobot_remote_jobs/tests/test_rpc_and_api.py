@@ -149,6 +149,39 @@ class WorkerAPITest(TestCase):
         response = self.client.post(f"{self.BASE}/enroll/", {"name": "x"}, format="json")
         self.assertEqual(response.status_code, 401)
 
+    def test_enroll_token_hash_not_in_api_response(self):
+        # Security: the enrollment token hash must not be serialized to clients.
+        from nautobot.users.models import Token
+
+        self.user.is_superuser = True
+        self.user.save()
+        token = Token.objects.create(user=self.user)
+        enroll_token, _ = WorkerEnrollmentToken.generate(self.zone)
+        response = self.client.get(
+            f"{self.BASE}/enrollment-tokens/{enroll_token.pk}/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertNotIn("token_hash", response.json())
+
+    def test_worker_fingerprint_not_in_api_response(self):
+        # Security: identity_fingerprint / secret_generation are credential
+        # material and must not appear in worker API responses.
+        from nautobot.users.models import Token
+
+        self.user.is_superuser = True
+        self.user.save()
+        token = Token.objects.create(user=self.user)
+        worker = make_worker(self.zone)
+        response = self.client.get(
+            f"{self.BASE}/workers/{worker.pk}/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        body = response.json()
+        self.assertNotIn("identity_fingerprint", body)
+        self.assertNotIn("secret_generation", body)
+
     def test_worker_self_with_session_auth(self):
         worker = make_worker(self.zone)
         secret = derive_session_secret(worker)
@@ -235,6 +268,27 @@ class WorkerAPITest(TestCase):
         )
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(run.job_result.job_console_entries.count(), 1)
+
+    def test_artifact_name_path_traversal_sanitized(self):
+        # Security: a traversal-laden artifact name must not escape the run's
+        # own artifact prefix in the storage path.
+        worker = make_worker(self.zone)
+        definition = make_definition(zone=self.zone)
+        run = submit_run(definition, self.user, {})
+        from nautobot_remote_jobs.dispatch import claims
+        from nautobot_remote_jobs.models import RunArtifact
+
+        offer = claims.claim_runs(worker)[0]
+        response = self.client.post(
+            f"{self.BASE}/runs/{run.pk}/artifacts/",
+            {"name": "../../../../etc/evil", "content_type": "text/plain", "size_bytes": 3},
+            format="json",
+            HTTP_AUTHORIZATION=f"Token {offer['token']}",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        artifact = RunArtifact.objects.get(pk=response.json()["artifact_id"])
+        self.assertNotIn("..", artifact.storage_path)
+        self.assertTrue(artifact.storage_path.startswith(f"remote-jobs/artifacts/{run.pk}/"))
 
     @override_settings()
     def test_verify_session_endpoint(self):

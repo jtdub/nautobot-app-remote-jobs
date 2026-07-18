@@ -60,6 +60,19 @@ def extract_target_devices(definition, inputs):
     device_ids = inputs.get(field) or []
     if not isinstance(device_ids, list):
         device_ids = [device_ids]
+    from django.conf import settings
+
+    from nautobot_remote_jobs.constants import DEFAULT_FANOUT_MAX_DEVICES
+
+    max_devices = settings.PLUGINS_CONFIG.get("nautobot_remote_jobs", {}).get(
+        "fanout_max_devices", DEFAULT_FANOUT_MAX_DEVICES
+    )
+    if len(device_ids) > max_devices:
+        # Bound per-request row creation: a per_device/fan_out submission expands
+        # into one RemoteJobRun + JobResult per device inside one transaction.
+        raise SubmissionError(
+            f"Too many target devices in '{field}': {len(device_ids)} exceeds the limit of {max_devices}."
+        )
     devices = list(Device.objects.filter(pk__in=device_ids))
     if len(devices) != len(set(device_ids)):
         found = {str(device.pk) for device in devices}

@@ -454,18 +454,31 @@ class RunTask:
             return None
 
     async def _pump_console(self) -> None:
-        """Stream container stdout/stderr into the console sink."""
+        """Stream container stdout/stderr into the console sink.
+
+        The scoped NAUTOBOT_TOKEN the agent injects into the container env is
+        masked from raw console output here: a non-SDK entrypoint (e.g. a shell
+        running ``printenv``) writes directly to fd 1/2 and bypasses the SDK's
+        in-process redactor, so without this the live token could be persisted
+        into JobConsoleEntry (SPEC 10.2 'no tokens'). The worker can only mask
+        the token it injected; container-resolved secret values never reach the
+        worker and are redacted in-process by the SDK.
+        """
         if self._handle is None:
             return
+        token = str(self.offer.get("token") or "")
         try:
             async for output_type, text in self._handle.stream_logs():
                 if not text:
                     continue
+                clean = text.rstrip("\n")
+                if token and token in clean:
+                    clean = clean.replace(token, "(redacted)")
                 await self.agent.sink.emit_console(
                     self.run_id,
                     {
                         "output_type": output_type,
-                        "text": text.rstrip("\n"),
+                        "text": clean,
                         "timestamp": _utc_now_iso(),
                     },
                 )

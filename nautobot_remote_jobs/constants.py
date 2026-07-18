@@ -22,6 +22,14 @@ CHANNEL_WORKER_RSP = "remote-jobs:worker:{worker_id}:rsp:{request_id}"
 LOG_BATCH_MAX_ENTRIES = 500
 LOG_BATCH_MAX_BYTES = 256 * 1024
 
+# Max artifact upload size accepted by the content endpoint (override via
+# PLUGINS_CONFIG["nautobot_remote_jobs"]["artifact_max_bytes"]).
+DEFAULT_ARTIFACT_MAX_BYTES = 100 * 1024 * 1024
+
+# Max target devices a single per_device/fan_out submission may expand into,
+# bounding the per-request row creation (override via "fanout_max_devices").
+DEFAULT_FANOUT_MAX_DEVICES = 500
+
 # JSON-RPC application error codes (SPEC 8.3).
 RPC_UNAUTHORIZED = -32001
 RPC_UNKNOWN_RUN = -32002

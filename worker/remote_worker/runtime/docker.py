@@ -72,6 +72,10 @@ class DockerRuntime(ContainerRuntime):
             "ReadonlyRootfs": spec.read_only_rootfs,
             "NetworkMode": spec.network_mode,
             "AutoRemove": False,
+            # Drop all Linux capabilities (defense in depth on top of the
+            # non-root user + no-new-privileges): even if an operator overrides
+            # the user back to root, retained caps like NET_RAW stay off.
+            "CapDrop": ["ALL"],
         }
         if spec.tmpfs:
             host_config["Tmpfs"] = dict(spec.tmpfs)
