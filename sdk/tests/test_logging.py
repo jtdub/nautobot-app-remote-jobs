@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 
 import pytest
-
 from conftest import FakeResponse, FakeSession
 from nautobot_remote_jobs_sdk import redaction
 from nautobot_remote_jobs_sdk.logging import LOG_LEVELS, JobLogger, LogClient
@@ -51,9 +50,7 @@ def test_client_sequence_increments_per_batch(fake_session):
     logger = JobLogger(client=client, echo_stream=io.StringIO())
     logger.info("a")
     logger.info("b")
-    sequences = [
-        call[2]["json"]["client_sequence"] for call in fake_session.calls_for("POST", LOGS_PATH)
-    ]
+    sequences = [call[2]["json"]["client_sequence"] for call in fake_session.calls_for("POST", LOGS_PATH)]
     assert sequences == [1, 2]
 
 

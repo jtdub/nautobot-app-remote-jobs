@@ -8,7 +8,7 @@ class with a ``resolve(parameters)`` method (see :class:`SecretProvider`).
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 try:  # Python 3.10+ importlib.metadata with the group= keyword
     from importlib.metadata import entry_points
@@ -76,8 +76,7 @@ class ProviderRegistry:
             return self._providers[slug]
         except KeyError:
             raise UnknownProviderError(
-                f"No local secrets provider registered for slug {slug!r}. "
-                f"Known slugs: {sorted(self._providers)}"
+                f"No local secrets provider registered for slug {slug!r}. " f"Known slugs: {sorted(self._providers)}"
             ) from None
 
     def _load_entry_points(self) -> None:

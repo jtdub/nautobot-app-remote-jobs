@@ -71,9 +71,7 @@ class KafkaLogSink(BatchingLogSink):
             self._started = True
         await super().start()
 
-    async def _send(
-        self, run_id: str, kind: str, sequence: int, entries: list[dict[str, Any]]
-    ) -> None:
+    async def _send(self, run_id: str, kind: str, sequence: int, entries: list[dict[str, Any]]) -> None:
         if not self._started:
             await self._producer.start()
             self._started = True

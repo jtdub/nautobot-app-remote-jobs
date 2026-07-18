@@ -19,6 +19,7 @@ from jinja2.sandbox import SandboxedEnvironment
 
 from .. import redaction
 from ..http import join_url
+from . import providers as _providers  # noqa: F401 - registers built-in providers
 from .registry import (
     ProviderRegistry,
     SecretProvider,
@@ -27,7 +28,6 @@ from .registry import (
     UnknownProviderError,
     default_registry,
 )
-from . import providers as _providers  # noqa: F401 - registers built-in providers
 
 __all__ = [
     "SecretsClient",
@@ -86,19 +86,13 @@ class SecretsClient:
         return response.json()
 
     def _lookup_group(self, group_name: str) -> Dict[str, Any]:
-        payload = self._get_json(
-            join_url(self._api_base, "extras/secrets-groups"), params={"name": group_name}
-        )
+        payload = self._get_json(join_url(self._api_base, "extras/secrets-groups"), params={"name": group_name})
         results = payload.get("results", [])
         if not results:
-            raise SecretNotFoundError(
-                f"SecretsGroup {group_name!r} not found or not visible to this token"
-            )
+            raise SecretNotFoundError(f"SecretsGroup {group_name!r} not found or not visible to this token")
         return results[0]
 
-    def _lookup_association(
-        self, group_id: str, access_type: str, secret_type: str
-    ) -> Dict[str, Any]:
+    def _lookup_association(self, group_id: str, access_type: str, secret_type: str) -> Dict[str, Any]:
         payload = self._get_json(
             join_url(self._api_base, "extras/secrets-groups-associations"),
             params={
@@ -110,8 +104,7 @@ class SecretsClient:
         results = payload.get("results", [])
         if not results:
             raise SecretNotFoundError(
-                f"No secret with access_type={access_type!r} secret_type={secret_type!r} "
-                f"in SecretsGroup {group_id}"
+                f"No secret with access_type={access_type!r} secret_type={secret_type!r} " f"in SecretsGroup {group_id}"
             )
         return results[0]
 
@@ -128,7 +121,7 @@ class SecretsClient:
         self,
         group: str,
         access_type: str = "Generic",
-        secret_type: str = "password",
+        secret_type: str = "password",  # noqa: S107 - type selector, not a credential
         obj: Any = None,
     ) -> str:
         """Resolve one secret value from *group* (SPEC 9 flow).

@@ -28,9 +28,7 @@ class GraphQLClient:
         self._session = session
         self.endpoint = join_url(nautobot_url, "api/graphql")
 
-    def __call__(
-        self, query: str, variables: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def __call__(self, query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Execute *query* and return the ``data`` payload.
 
         Raises:

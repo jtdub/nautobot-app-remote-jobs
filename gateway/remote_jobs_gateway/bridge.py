@@ -217,7 +217,7 @@ class WorkerBridge:
             channel = self._as_str(message.get("channel"))
             data = self._as_str(message.get("data"))
             if channel.startswith(self._rsp_prefix):
-                request_id = channel[len(self._rsp_prefix):]
+                request_id = channel[len(self._rsp_prefix) :]
                 future = self._pending.pop(request_id, None)
                 if future is not None and not future.done():
                     future.set_result(data)

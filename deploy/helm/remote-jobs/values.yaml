@@ -1,43 +1,44 @@
+---
 # Default values for the remote-jobs chart.
 
 gateway:
   enabled: true
   replicas: 2
   image:
-    repository: registry.example.com/remote-jobs-gateway
-    tag: latest
+    repository: "registry.example.com/remote-jobs-gateway"
+    tag: "latest"
   redisUrl: "redis://redis:6379/0"
   appUrl: "http://nautobot:80"
   # Secret containing GATEWAY_INTERNAL_TOKEN.
-  internalTokenSecret: remote-jobs-gateway-token
+  internalTokenSecret: "remote-jobs-gateway-token"
   service:
-    type: ClusterIP
+    type: "ClusterIP"
     port: 8433
   # Expose via your ingress controller with TLS termination; workers connect
   # with wss:// to this host.
   ingress:
     enabled: false
-    host: remote-jobs-gw.example.com
+    host: "remote-jobs-gw.example.com"
 
 rpcConsumer:
   enabled: true
   replicas: 1
   # Must be your Nautobot image with nautobot-remote-jobs installed.
   image:
-    repository: registry.example.com/nautobot
-    tag: latest
+    repository: "registry.example.com/nautobot"
+    tag: "latest"
   # envFrom secret/configmap carrying standard NAUTOBOT_* settings.
-  envFromSecret: nautobot-env
+  envFromSecret: "nautobot-env"
 
 logConsumer:
   # Only for the Kafka log sink (SPEC 10.2).
   enabled: false
   replicas: 1
-  bootstrapServers: kafka:9092
+  bootstrapServers: "kafka:9092"
   image:
-    repository: registry.example.com/nautobot
-    tag: latest
-  envFromSecret: nautobot-env
+    repository: "registry.example.com/nautobot"
+    tag: "latest"
+  envFromSecret: "nautobot-env"
 
 worker:
   # Workers normally deploy inside each execution zone, often on separate
@@ -45,10 +46,10 @@ worker:
   enabled: false
   replicas: 1
   image:
-    repository: registry.example.com/remote-worker
-    tag: latest
+    repository: "registry.example.com/remote-worker"
+    tag: "latest"
   nautobotUrl: "https://nautobot.example.com"
   gatewayUrl: "wss://remote-jobs-gw.example.com/ws/worker"
-  enrollTokenSecret: remote-jobs-enroll-token
+  enrollTokenSecret: "remote-jobs-enroll-token"
   statePvc:
-    size: 1Gi
+    size: "1Gi"

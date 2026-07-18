@@ -27,6 +27,7 @@ except ImportError:  # pragma: no cover - exercised only in minimal envs
 
         status = 0
 
+
 from .base import ContainerHandle, ContainerRuntime, ContainerSpec
 
 logger = logging.getLogger(__name__)
@@ -66,9 +67,7 @@ class DockerRuntime(ContainerRuntime):
     async def create(self, spec: ContainerSpec) -> ContainerHandle:
         for mount in spec.mounts:
             if mount.source in _DOCKER_SOCKET_PATHS or mount.target in _DOCKER_SOCKET_PATHS:
-                raise ValueError(
-                    "refusing to mount a container engine socket into a job container"
-                )
+                raise ValueError("refusing to mount a container engine socket into a job container")
         host_config: dict[str, Any] = {
             "ReadonlyRootfs": spec.read_only_rootfs,
             "NetworkMode": spec.network_mode,
@@ -82,10 +81,7 @@ class DockerRuntime(ContainerRuntime):
         if security_opt:
             host_config["SecurityOpt"] = security_opt
         if spec.mounts:
-            host_config["Binds"] = [
-                f"{m.source}:{m.target}:{'ro' if m.read_only else 'rw'}"
-                for m in spec.mounts
-            ]
+            host_config["Binds"] = [f"{m.source}:{m.target}:{'ro' if m.read_only else 'rw'}" for m in spec.mounts]
         if spec.memory_bytes:
             host_config["Memory"] = spec.memory_bytes
         if spec.nano_cpus:

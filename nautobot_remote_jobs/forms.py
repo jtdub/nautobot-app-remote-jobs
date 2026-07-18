@@ -254,7 +254,7 @@ def build_run_form(definition, data=None):
     return form_class(data=data)
 
 
-def run_form_to_inputs(definition, form):
+def run_form_to_inputs(definition, form):  # pylint: disable=unused-argument
     """Convert cleaned dynamic-form data back into an inputs dict for submission."""
     inputs = {}
     for key, value in form.cleaned_data.items():

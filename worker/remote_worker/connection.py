@@ -27,6 +27,7 @@ except ImportError:  # pragma: no cover - exercised only in minimal envs
     class _WsConnectionClosed(Exception):
         """Placeholder when websockets is unavailable."""
 
+
 from . import rpc
 
 logger = logging.getLogger(__name__)
@@ -72,9 +73,9 @@ def gateway_ws_url(gateway_url: str) -> str:
     """Derive the ``/ws/worker`` WebSocket URL from the gateway base URL."""
     url = gateway_url.rstrip("/")
     if url.startswith("https://"):
-        url = "wss://" + url[len("https://"):]
+        url = "wss://" + url[len("https://") :]
     elif url.startswith("http://"):
-        url = "ws://" + url[len("http://"):]
+        url = "ws://" + url[len("http://") :]
     if not url.endswith(WS_WORKER_PATH):
         url += WS_WORKER_PATH
     return url
@@ -132,8 +133,8 @@ class GatewayConnection:
             await asyncio.sleep(delay)
 
     def _backoff_delay(self, attempt: int) -> float:
-        ceiling = min(self._backoff_max, self._backoff_min * (2 ** attempt))
-        return random.uniform(max(self._backoff_min / 2, ceiling / 2), ceiling)
+        ceiling = min(self._backoff_max, self._backoff_min * (2**attempt))
+        return random.uniform(max(self._backoff_min / 2, ceiling / 2), ceiling)  # noqa: S311 - jitter, not crypto
 
     def _ssl_context(self) -> ssl.SSLContext | None:
         if not self._url.startswith("wss://"):
@@ -166,7 +167,7 @@ class GatewayConnection:
                     read_task.cancel()
                     try:
                         await read_task
-                    except (asyncio.CancelledError, Exception):
+                    except (asyncio.CancelledError, Exception):  # noqa: S110 - reader teardown
                         pass
             finally:
                 self.connected = False
@@ -180,7 +181,7 @@ class GatewayConnection:
         if ws is not None:
             try:
                 await ws.close()
-            except Exception:  # pragma: no cover - best effort
+            except Exception:  # noqa: S110  # pragma: no cover - best effort
                 pass
 
     # -------------------------------------------------------------- framing

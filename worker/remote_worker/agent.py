@@ -159,7 +159,9 @@ class WorkerAgent:
         self._claim_wanted.set()
         logger.info(
             "worker.hello acknowledged (draining=%s lease=%ds in_flight=%d)",
-            self.draining, self.lease_seconds, len(in_flight),
+            self.draining,
+            self.lease_seconds,
+            len(in_flight),
         )
 
     async def _ensure_sink(self, server_config: dict[str, Any] | None) -> None:
@@ -312,7 +314,7 @@ class RunTask:
         self._entry = entry
         self._handle: ContainerHandle | None = None
         self._exited = asyncio.Event()
-        self._terminated = False       # cancel requested (graceful or kill)
+        self._terminated = False  # cancel requested (graceful or kill)
         self._timed_out = False
         self._lease_lost = False
         self._cancel_task: asyncio.Task[None] | None = None
@@ -353,7 +355,8 @@ class RunTask:
     async def recover(self) -> None:
         """Post-restart path: re-attach to the container if it still exists."""
         entry = self._entry
-        assert entry is not None
+        if entry is None:
+            raise RuntimeError("recover() requires a journal entry")
         name = container_name_for_run(self.run_id)
         image = str(self.offer.get("image", ""))
         try:
@@ -369,7 +372,8 @@ class RunTask:
         if handle is None:
             logger.warning("run %s: container lost across restart", self.run_id)
             await self._finalize(
-                STATE_FAILURE, exit_code=None,
+                STATE_FAILURE,
+                exit_code=None,
                 error="container lost across agent restart",
             )
             return
@@ -381,7 +385,8 @@ class RunTask:
     # ---------------------------------------------------------- supervision
 
     async def _supervise(self, deadline: float) -> None:
-        assert self._handle is not None
+        if self._handle is None:
+            raise RuntimeError("_supervise() requires a container handle")
         console_task = asyncio.create_task(self._pump_console(), name=f"console-{self.run_id}")
         status_task = asyncio.create_task(self._status_loop(), name=f"status-{self.run_id}")
         exit_code: int | None = None
@@ -394,9 +399,7 @@ class RunTask:
         except (asyncio.TimeoutError, TimeoutError):
             if not self._terminated:
                 self._timed_out = True
-                logger.warning(
-                    "run %s exceeded timeout of %ds; killing", self.run_id, self.timeout_seconds
-                )
+                logger.warning("run %s exceeded timeout of %ds; killing", self.run_id, self.timeout_seconds)
             await self._handle.kill()
             exit_code = await self._safe_wait()
         except asyncio.CancelledError:
@@ -415,14 +418,14 @@ class RunTask:
                 # Let a graceful-cancel finish signalling before finalizing.
                 try:
                     await asyncio.wait_for(asyncio.shield(self._cancel_task), timeout=5.0)
-                except (asyncio.TimeoutError, TimeoutError, asyncio.CancelledError, Exception):
+                except (asyncio.TimeoutError, TimeoutError, asyncio.CancelledError, Exception):  # noqa: S110
                     pass
             # Give the console pump a moment to drain remaining output.
             try:
                 await asyncio.wait_for(console_task, timeout=10.0)
             except (asyncio.TimeoutError, TimeoutError):
                 console_task.cancel()
-            except (asyncio.CancelledError, Exception):
+            except (asyncio.CancelledError, Exception):  # noqa: S110 - best-effort drain
                 pass
         state, final_error = self._classify(exit_code, error)
         await self._finalize(state, exit_code=exit_code, error=final_error)
@@ -442,7 +445,8 @@ class RunTask:
         return STATE_FAILURE, f"exit code {exit_code}"
 
     async def _safe_wait(self) -> int | None:
-        assert self._handle is not None
+        if self._handle is None:
+            return None
         try:
             return await asyncio.wait_for(self._handle.wait(), timeout=30.0)
         except (asyncio.TimeoutError, TimeoutError, Exception):
@@ -450,7 +454,8 @@ class RunTask:
 
     async def _pump_console(self) -> None:
         """Stream container stdout/stderr into the console sink."""
-        assert self._handle is not None
+        if self._handle is None:
+            return
         try:
             async for output_type, text in self._handle.stream_logs():
                 if not text:
@@ -480,16 +485,15 @@ class RunTask:
             if self._detached:
                 return
             try:
-                result = await self.agent.connection.call(
-                    "job.status", {"run_id": self.run_id, "state": "RUNNING"}
-                )
+                result = await self.agent.connection.call("job.status", {"run_id": self.run_id, "state": "RUNNING"})
             except ConnectionClosedError:
                 continue  # reconnect loop will restore the session
             except rpc.RpcError as exc:
                 if exc.code in (rpc.UNKNOWN_RUN, rpc.LEASE_EXPIRED):
                     logger.error(
                         "run %s: server rejected status (%s); killing container",
-                        self.run_id, exc,
+                        self.run_id,
+                        exc,
                     )
                     self._lease_lost = True
                     if self._handle is not None:
@@ -499,9 +503,7 @@ class RunTask:
                 continue
             if (result or {}).get("cancel_requested") and self._cancel_task is None:
                 logger.info("run %s: cancel requested via status poll", self.run_id)
-                self._cancel_task = asyncio.create_task(
-                    self.cancel("graceful"), name=f"cancel-{self.run_id}"
-                )
+                self._cancel_task = asyncio.create_task(self.cancel("graceful"), name=f"cancel-{self.run_id}")
 
     # ---------------------------------------------------------------- cancel
 
@@ -549,9 +551,7 @@ class RunTask:
         await self._send_complete(state, exit_code, digest, error)
         await self._cleanup()
 
-    async def _send_complete(
-        self, state: str, exit_code: int | None, digest: str, error: str | None
-    ) -> None:
+    async def _send_complete(self, state: str, exit_code: int | None, digest: str, error: str | None) -> None:
         """Deliver job.complete, retrying across reconnects (idempotent per run)."""
         if self._complete_sent:
             return
@@ -599,9 +599,7 @@ class RunTask:
     def _build_spec(self, image: str) -> ContainerSpec:
         """Assemble the hardened container spec from the offer (SPEC 12.2/12.3)."""
         config = self.agent.config
-        env: dict[str, str] = {
-            str(key): str(value) for key, value in (self.offer.get("env") or {}).items()
-        }
+        env: dict[str, str] = {str(key): str(value) for key, value in (self.offer.get("env") or {}).items()}
         env["NAUTOBOT_URL"] = str(self.offer.get("nautobot_url") or config.nautobot_url)
         token = self.offer.get("token")
         if token:
@@ -614,10 +612,7 @@ class RunTask:
         for name in config.pass_env:
             if name in os.environ:
                 env.setdefault(name, os.environ[name])
-        mounts = [
-            Mount(source=mount.source, target=mount.target, read_only=True)
-            for mount in config.secret_mounts
-        ]
+        mounts = [Mount(source=mount.source, target=mount.target, read_only=True) for mount in config.secret_mounts]
         nano_cpus = int(config.cpu_limit * 1_000_000_000) if config.cpu_limit else None
         return ContainerSpec(
             name=container_name_for_run(self.run_id),

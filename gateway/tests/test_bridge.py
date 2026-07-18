@@ -6,7 +6,6 @@ import asyncio
 import json
 
 import pytest
-
 from remote_jobs_gateway import rpc
 from remote_jobs_gateway.bridge import RateLimiter, WorkerBridge
 from remote_jobs_gateway.config import RPC_CHANNEL
@@ -89,9 +88,7 @@ class TestRateLimitRejection:
     async def test_over_rate_frames_get_error(self):
         bridge, ws, redis = make_bridge(rate_limit_rps=30.0, rate_limit_burst=3)
         for i in range(5):
-            await bridge.handle_worker_frame(
-                json.dumps({"jsonrpc": "2.0", "method": "job.status", "params": {"n": i}})
-            )
+            await bridge.handle_worker_frame(json.dumps({"jsonrpc": "2.0", "method": "job.status", "params": {"n": i}}))
         assert len(redis.published) == 3  # burst allowed through
         errors = [json.loads(s) for s in ws.sent]
         assert len(errors) == 2

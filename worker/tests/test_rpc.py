@@ -4,7 +4,6 @@ import json
 import uuid
 
 import pytest
-
 from remote_worker import rpc
 
 
@@ -60,8 +59,7 @@ def test_decode_result_response():
 
 def test_decode_error_response_raises_on_unwrap():
     text = json.dumps(
-        {"jsonrpc": "2.0", "id": "abc",
-         "error": {"code": -32005, "message": "singleton_held", "data": {"run_id": "x"}}}
+        {"jsonrpc": "2.0", "id": "abc", "error": {"code": -32005, "message": "singleton_held", "data": {"run_id": "x"}}}
     )
     decoded = rpc.decode(text)
     assert isinstance(decoded, rpc.RpcResponse)

@@ -123,21 +123,14 @@ class BatchingLogSink(LogSink):
                 buffer = self._buffers[key] = _Buffer(first_at=self._clock())
             buffer.entries.append(entry)
             buffer.byte_size += len(json.dumps(entry, default=str).encode("utf-8"))
-            if (
-                len(buffer.entries) >= FLUSH_MAX_ENTRIES
-                or buffer.byte_size >= FLUSH_MAX_BYTES
-            ):
+            if len(buffer.entries) >= FLUSH_MAX_ENTRIES or buffer.byte_size >= FLUSH_MAX_BYTES:
                 await self._flush_locked(key)
 
     async def maybe_flush_expired(self) -> None:
         """Flush buffers older than :data:`FLUSH_INTERVAL_SECONDS`."""
         now = self._clock()
         async with self._lock:
-            expired = [
-                key
-                for key, buffer in self._buffers.items()
-                if now - buffer.first_at >= FLUSH_INTERVAL_SECONDS
-            ]
+            expired = [key for key, buffer in self._buffers.items() if now - buffer.first_at >= FLUSH_INTERVAL_SECONDS]
             for key in expired:
                 await self._flush_locked(key)
 
@@ -162,7 +155,10 @@ class BatchingLogSink(LogSink):
         except Exception:
             logger.exception(
                 "failed to deliver %s batch seq=%d for run %s (%d entries dropped)",
-                kind, sequence, run_id, len(buffer.entries),
+                kind,
+                sequence,
+                run_id,
+                len(buffer.entries),
             )
 
     def next_sequence_hint(self, run_id: str) -> int:
@@ -174,7 +170,5 @@ class BatchingLogSink(LogSink):
         self._sequences.pop(run_id, None)
 
     @abc.abstractmethod
-    async def _send(
-        self, run_id: str, kind: str, sequence: int, entries: list[dict[str, Any]]
-    ) -> None:
+    async def _send(self, run_id: str, kind: str, sequence: int, entries: list[dict[str, Any]]) -> None:
         """Deliver one batch. Must be at-least-once (retry internally)."""

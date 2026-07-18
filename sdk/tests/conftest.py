@@ -7,7 +7,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pytest
 import requests
-
 from nautobot_remote_jobs_sdk import redaction
 
 
@@ -82,11 +81,7 @@ class FakeSession:
     # helpers -----------------------------------------------------------
 
     def calls_for(self, method: str, url_substring: str) -> List[Tuple[str, str, Dict[str, Any]]]:
-        return [
-            call
-            for call in self.calls
-            if call[0] == method.upper() and url_substring in call[1]
-        ]
+        return [call for call in self.calls if call[0] == method.upper() and url_substring in call[1]]
 
 
 @pytest.fixture()

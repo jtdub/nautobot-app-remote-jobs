@@ -1,7 +1,6 @@
 """Tests for configuration parsing (env vars + optional TOML, SPEC 12.1)."""
 
 import pytest
-
 from remote_worker.config import (
     ConfigError,
     SecretMount,
@@ -46,9 +45,7 @@ def test_env_parsing():
     assert config.capacity == 8
     assert config.capabilities == ["ssh-access", "netconf"]
     assert config.pass_env == ["VAULT_ADDR", "VAULT_TOKEN"]
-    assert config.secret_mounts == [
-        SecretMount(source="/etc/secrets/tacacs", target="/run/secrets/tacacs")
-    ]
+    assert config.secret_mounts == [SecretMount(source="/etc/secrets/tacacs", target="/run/secrets/tacacs")]
     assert str(config.state_dir) == "/data/worker"
     assert config.health_port == 9999
     assert config.memory_limit_bytes == 512 * 1024 * 1024
@@ -104,10 +101,12 @@ password = "hunter2"
 
 
 def test_log_sink_env_override():
-    config = WorkerConfig.load(env={
-        "REMOTE_WORKER_LOG_SINK": "kafka",
-        "REMOTE_WORKER_KAFKA_BOOTSTRAP_SERVERS": "k1:9092,k2:9092",
-    })
+    config = WorkerConfig.load(
+        env={
+            "REMOTE_WORKER_LOG_SINK": "kafka",
+            "REMOTE_WORKER_KAFKA_BOOTSTRAP_SERVERS": "k1:9092,k2:9092",
+        }
+    )
     assert config.log_sink_override == {
         "type": "kafka",
         "bootstrap_servers": "k1:9092,k2:9092",
@@ -115,10 +114,12 @@ def test_log_sink_env_override():
 
 
 def test_registry_auth_env_wildcard():
-    config = WorkerConfig.load(env={
-        "REMOTE_WORKER_REGISTRY_USERNAME": "user",
-        "REMOTE_WORKER_REGISTRY_PASSWORD": "pass",
-    })
+    config = WorkerConfig.load(
+        env={
+            "REMOTE_WORKER_REGISTRY_USERNAME": "user",
+            "REMOTE_WORKER_REGISTRY_PASSWORD": "pass",
+        }
+    )
     assert config.registry_auth_for("anything.example.com/img@sha256:" + "0" * 64) == {
         "username": "user",
         "password": "pass",

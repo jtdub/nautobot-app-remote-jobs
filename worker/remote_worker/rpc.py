@@ -146,8 +146,9 @@ def decode(text: str | bytes) -> RpcRequest | RpcResponse:
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise RpcError(PARSE_ERROR, data=str(exc)) from exc
     if not isinstance(obj, dict):
-        raise RpcError(INVALID_REQUEST, "batch requests are not supported"
-                       if isinstance(obj, list) else "frame must be an object")
+        raise RpcError(
+            INVALID_REQUEST, "batch requests are not supported" if isinstance(obj, list) else "frame must be an object"
+        )
     if obj.get("jsonrpc") != JSONRPC_VERSION:
         raise RpcError(INVALID_REQUEST, "missing or invalid jsonrpc version")
     if "method" in obj:
@@ -156,13 +157,11 @@ def decode(text: str | bytes) -> RpcRequest | RpcResponse:
         if not isinstance(method, str) or not isinstance(params, dict):
             raise RpcError(INVALID_REQUEST, "invalid method or params")
         req_id = obj.get("id")
-        return RpcRequest(method=method, params=params,
-                          id=str(req_id) if req_id is not None else None)
+        return RpcRequest(method=method, params=params, id=str(req_id) if req_id is not None else None)
     if "result" in obj or "error" in obj:
         resp_id = obj.get("id")
         error = obj.get("error")
         if error is not None and not isinstance(error, dict):
             raise RpcError(INVALID_REQUEST, "invalid error member")
-        return RpcResponse(id=str(resp_id) if resp_id is not None else None,
-                           result=obj.get("result"), error=error)
+        return RpcResponse(id=str(resp_id) if resp_id is not None else None, result=obj.get("result"), error=error)
     raise RpcError(INVALID_REQUEST, "frame is neither request nor response")

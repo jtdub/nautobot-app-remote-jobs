@@ -24,7 +24,7 @@ class JobDefinitionViewSet(NautobotModelViewSet):
     filterset_class = filters.JobDefinitionFilterSet
 
     @action(detail=True, methods=["post"], url_path="run")
-    def run(self, request, pk=None):
+    def run(self, request, pk=None):  # pylint: disable=unused-argument
         """Submit a run of this definition as the requesting user (SPEC 5)."""
         definition = self.get_object()
         body = serializers.RunRequestSerializer(data=request.data)
@@ -68,7 +68,7 @@ class WorkerViewSet(NautobotModelViewSet):
     filterset_class = filters.WorkerFilterSet
 
     @action(detail=True, methods=["post"], url_path="drain")
-    def drain(self, request, pk=None):
+    def drain(self, request, pk=None):  # pylint: disable=unused-argument
         """Set draining and push worker.drain to the agent (SPEC 8.2)."""
         from nautobot_remote_jobs.dispatch import notify
 
@@ -103,7 +103,7 @@ class RemoteJobRunViewSet(NautobotModelViewSet):
         )
 
     @action(detail=True, methods=["post"], url_path="cancel")
-    def cancel(self, request, pk=None):
+    def cancel(self, request, pk=None):  # pylint: disable=unused-argument
         """Cancel this run (app-native path; core Cancel button uses the strategy)."""
         run = self.get_object()
         mode = request.data.get("mode", CancelModeChoices.GRACEFUL)

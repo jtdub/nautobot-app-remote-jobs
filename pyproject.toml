@@ -90,12 +90,30 @@ ignore = ".venv"
 no-docstring-rgx = "^(_|test_|Meta$)"
 
 [tool.pylint.messages_control]
+# Docstring policy is enforced by ruff (pydocstyle); pylint's docstring and
+# complexity checks and Nautobot's deep inheritance trees are excluded here.
+# import-outside-toplevel is used deliberately for circular-import avoidance
+# and optional dependencies; broad-exception-caught instances are annotated
+# inline with their justification. nb-use-fields-all is disabled because the
+# form/filterset field subsets are intentional (e.g. enrollment-managed Worker
+# identity fields are excluded from the edit form).
 disable = """,
     line-too-long,
     too-many-positional-arguments,
     nb-warn-dunder-filter-field,
     nb-no-search-function,
     nb-no-char-filter-q,
+    nb-use-fields-all,
+    missing-class-docstring,
+    missing-function-docstring,
+    import-outside-toplevel,
+    too-many-ancestors,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+    too-many-return-statements,
+    broad-exception-caught,
+    duplicate-code,
 """
 
 [tool.pylint.miscellaneous]
@@ -150,7 +168,21 @@ convention = "google"
 "nautobot_remote_jobs/migrations/*" = [
     "D",
 ]
+# Test suites across all mono-repo components: docstrings and bandit rules
+# (assert usage, test credentials) do not apply.
 "nautobot_remote_jobs/tests/*" = [
+    "D",
+    "S"
+]
+"gateway/tests/*" = [
+    "D",
+    "S"
+]
+"worker/tests/*" = [
+    "D",
+    "S"
+]
+"sdk/tests/*" = [
     "D",
     "S"
 ]

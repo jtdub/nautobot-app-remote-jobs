@@ -19,7 +19,7 @@ Nautobot's built-in Jobs execute inside the Nautobot deployment with direct ORM 
 - **Workers connect outbound** to a control-plane gateway over TLS WebSocket and speak JSON-RPC 2.0. Nautobot never initiates connections to workers.
 - **Results, logs, and console output land in core `JobResult` / `JobLogEntry` / `JobConsoleEntry` models**, so the existing Job Results UI, saved views, filters, and cancel button work unchanged.
 
-The complete design is in [SPEC.md](SPEC.md). Target: Nautobot >= 3.2.
+The complete design is in [SPEC.md](https://github.com/jtdub/nautobot-app-remote-jobs/blob/main/SPEC.md). Target: Nautobot >= 3.2.
 
 ## Repository layout (mono-repo)
 
@@ -108,4 +108,4 @@ Component test suites run independently:
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](https://github.com/jtdub/nautobot-app-remote-jobs/blob/main/LICENSE).

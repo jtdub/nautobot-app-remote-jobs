@@ -1,7 +1,6 @@
 """Tests for state persistence and digest-pinned image validation."""
 
 import pytest
-
 from remote_worker.runtime.base import ImageReferenceError, ensure_digest_reference
 from remote_worker.state import StateStore, WorkerState
 

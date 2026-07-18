@@ -81,7 +81,9 @@ class GatewaySettings(BaseSettings):
 
     # WebSocket keepalive (protocol-level ping/pong, served by uvicorn).
     ws_ping_interval_seconds: float = Field(default=20.0, gt=0, description="Interval between WS protocol pings.")
-    ws_ping_timeout_seconds: float = Field(default=20.0, gt=0, description="Grace before an unanswered ping drops the socket.")
+    ws_ping_timeout_seconds: float = Field(
+        default=20.0, gt=0, description="Grace before an unanswered ping drops the socket."
+    )
 
     log_level: str = Field(default="INFO", description="Python logging level name.")
 

@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
-
-from conftest import FakeResponse, FakeSession
+from conftest import FakeResponse
 from nautobot_remote_jobs_sdk import job
 from nautobot_remote_jobs_sdk.context import Context, ContextError, InputValidationError
 
@@ -28,9 +27,7 @@ def env(monkeypatch):
 def wired_session(monkeypatch, fake_session):
     """Route all SDK HTTP through the fake session."""
     fake_session.add("POST", "/logs/", FakeResponse(json_data={"ok": True}))
-    monkeypatch.setattr(
-        "nautobot_remote_jobs_sdk.http.build_session", lambda **kwargs: fake_session
-    )
+    monkeypatch.setattr("nautobot_remote_jobs_sdk.http.build_session", lambda **kwargs: fake_session)
     return fake_session
 
 
@@ -123,9 +120,7 @@ def test_main_exits_zero_on_success(env, wired_session):
     # Final flush shipped the buffered entries with a client_sequence.
     posts = wired_session.calls_for("POST", "/logs/")
     assert posts, "expected at least one flushed log batch"
-    messages = [
-        entry["message"] for _, _, kwargs in posts for entry in kwargs["json"]["entries"]
-    ]
+    messages = [entry["message"] for _, _, kwargs in posts for entry in kwargs["json"]["entries"]]
     assert "hello from the job" in messages
 
 

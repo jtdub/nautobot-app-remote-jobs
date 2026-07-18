@@ -144,9 +144,7 @@ class SessionVerifier:
             raise AuthenticationFailed("verify-session unavailable") from exc
 
         if response.status_code != 200:
-            logger.warning(
-                "verify-session returned HTTP %s for worker %s", response.status_code, handshake.worker_id
-            )
+            logger.warning("verify-session returned HTTP %s for worker %s", response.status_code, handshake.worker_id)
             raise AuthenticationFailed(f"verify-session returned HTTP {response.status_code}")
 
         try:

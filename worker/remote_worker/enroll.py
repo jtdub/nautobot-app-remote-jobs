@@ -55,9 +55,7 @@ async def enroll(config: WorkerConfig) -> WorkerState:
         except httpx.HTTPError as exc:
             raise EnrollmentError(f"enrollment request failed: {exc}") from exc
     if response.status_code not in (200, 201):
-        raise EnrollmentError(
-            f"enrollment rejected: HTTP {response.status_code}: {response.text[:500]}"
-        )
+        raise EnrollmentError(f"enrollment rejected: HTTP {response.status_code}: {response.text[:500]}")
     try:
         data = response.json()
         state = WorkerState(

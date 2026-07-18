@@ -55,9 +55,7 @@ async def _async_main() -> int:
     logger.info("starting %s as worker %s", AGENT_VERSION, state.worker_id)
     agent_task = asyncio.create_task(agent.run(), name="agent")
     stop_task = asyncio.create_task(stop.wait(), name="stop-signal")
-    done, _pending = await asyncio.wait(
-        {agent_task, stop_task}, return_when=asyncio.FIRST_COMPLETED
-    )
+    done, _pending = await asyncio.wait({agent_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
     if stop_task in done:
         logger.info("termination signal received")
     stop_task.cancel()
@@ -65,7 +63,7 @@ async def _async_main() -> int:
     agent_task.cancel()
     try:
         await agent_task
-    except (asyncio.CancelledError, Exception):
+    except (asyncio.CancelledError, Exception):  # noqa: S110 - shutdown path
         pass
     return 0
 

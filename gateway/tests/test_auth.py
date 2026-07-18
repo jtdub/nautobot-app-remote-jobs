@@ -8,7 +8,6 @@ import json
 
 import httpx
 import pytest
-
 from remote_jobs_gateway.auth import (
     AuthenticationFailed,
     Handshake,
@@ -39,9 +38,7 @@ def make_handshake(secret: str = SECRET, **overrides) -> Handshake:
 class TestSignature:
     def test_matches_reference_hmac(self):
         """The helper must equal a hand-rolled HMAC-SHA256 over 'wid:ts:nonce'."""
-        expected = hmac.new(
-            SECRET.encode(), b"worker-1:1700000000:abcdef0123456789", hashlib.sha256
-        ).hexdigest()
+        expected = hmac.new(SECRET.encode(), b"worker-1:1700000000:abcdef0123456789", hashlib.sha256).hexdigest()
         assert compute_signature("worker-1", 1_700_000_000, "abcdef0123456789", SECRET) == expected
 
     def test_valid_signature_verifies(self):

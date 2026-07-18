@@ -66,8 +66,8 @@ class WorkerSessionAuthentication(authentication.BaseAuthentication):
             return None
         try:
             worker = Worker.objects.select_related("zone").get(pk=worker_id)
-        except (Worker.DoesNotExist, ValueError):
-            raise exceptions.AuthenticationFailed("Unknown worker.")
+        except (Worker.DoesNotExist, ValueError) as exc:
+            raise exceptions.AuthenticationFailed("Unknown worker.") from exc
         if not verify_session_secret(worker, secret):
             raise exceptions.AuthenticationFailed("Invalid session credential.")
         if not worker.enabled:

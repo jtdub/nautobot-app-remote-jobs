@@ -1,6 +1,7 @@
-apiVersion: v2
-name: remote-jobs
-description: Gateway, RPC consumer, and worker agent for nautobot-app-remote-jobs
-type: application
-version: 0.1.0
+---
+apiVersion: "v2"
+name: "remote-jobs"
+description: "Gateway, RPC consumer, and worker agent for nautobot-app-remote-jobs"
+type: "application"
+version: "0.1.0"
 appVersion: "0.1.0"

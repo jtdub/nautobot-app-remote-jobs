@@ -52,11 +52,7 @@ class ArtifactsClient:
             content_type: MIME type; guessed from the filename when omitted.
         """
         name = name or os.path.basename(path)
-        content_type = (
-            content_type
-            or mimetypes.guess_type(name)[0]
-            or "application/octet-stream"
-        )
+        content_type = content_type or mimetypes.guess_type(name)[0] or "application/octet-stream"
         size_bytes = os.path.getsize(path)
         sha256 = _sha256_of_file(path)
 

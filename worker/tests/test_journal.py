@@ -4,7 +4,6 @@ import json
 
 from remote_worker.journal import RunJournal
 
-
 OFFER = {
     "run_id": "11111111-2222-4333-8444-555555555555",
     "definition": "rotate-local-admin",

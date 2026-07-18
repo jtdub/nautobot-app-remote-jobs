@@ -23,9 +23,7 @@ class EnvironmentVariableProvider(SecretProvider):
     def resolve(self, parameters: Dict[str, Any]) -> str:
         variable = parameters.get("variable")
         if not variable:
-            raise SecretResolutionError(
-                "environment-variable secret is missing the 'variable' parameter"
-            )
+            raise SecretResolutionError("environment-variable secret is missing the 'variable' parameter")
         try:
             return os.environ[variable]
         except KeyError:
@@ -53,8 +51,7 @@ class TextFileProvider(SecretProvider):
                 return handle.read().strip()
         except OSError as exc:
             raise SecretResolutionError(
-                f"Unable to read secret file {path!r}: {exc}. "
-                "Check the worker agent's secret_mounts configuration."
+                f"Unable to read secret file {path!r}: {exc}. " "Check the worker agent's secret_mounts configuration."
             ) from exc
 
 
@@ -78,8 +75,7 @@ class HashiCorpVaultProvider(SecretProvider):
             import hvac  # noqa: PLC0415 - optional dependency
         except ImportError:
             raise SecretResolutionError(
-                "hvac is not installed; install nautobot-remote-jobs-sdk[vault] "
-                "to resolve hashicorp-vault secrets"
+                "hvac is not installed; install nautobot-remote-jobs-sdk[vault] " "to resolve hashicorp-vault secrets"
             ) from None
 
         address = os.environ.get("VAULT_ADDR")
@@ -95,27 +91,21 @@ class HashiCorpVaultProvider(SecretProvider):
         elif role_id and secret_id:
             client.auth.approle.login(role_id=role_id, secret_id=secret_id)
         else:
-            raise SecretResolutionError(
-                "No Vault credentials: set VAULT_TOKEN or VAULT_ROLE_ID + VAULT_SECRET_ID"
-            )
+            raise SecretResolutionError("No Vault credentials: set VAULT_TOKEN or VAULT_ROLE_ID + VAULT_SECRET_ID")
         return client
 
     def resolve(self, parameters: Dict[str, Any]) -> str:
         path = parameters.get("path")
         key = parameters.get("key")
         if not path or not key:
-            raise SecretResolutionError(
-                "hashicorp-vault secret requires 'path' and 'key' parameters"
-            )
+            raise SecretResolutionError("hashicorp-vault secret requires 'path' and 'key' parameters")
         mount_point = parameters.get("mount_point", "secret")
         kv_version = str(parameters.get("kv_version", "v2")).lower()
 
         client = self._build_client()
         try:
             if kv_version in ("v2", "2"):
-                response = client.secrets.kv.v2.read_secret_version(
-                    path=path, mount_point=mount_point
-                )
+                response = client.secrets.kv.v2.read_secret_version(path=path, mount_point=mount_point)
                 data = response["data"]["data"]
             elif kv_version in ("v1", "1"):
                 response = client.secrets.kv.v1.read_secret(path=path, mount_point=mount_point)

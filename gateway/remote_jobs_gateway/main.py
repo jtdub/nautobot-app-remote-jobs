@@ -84,9 +84,7 @@ def create_app(settings: GatewaySettings | None = None) -> FastAPI:
         """Worker WebSocket: authenticate, then bridge JSON-RPC frames."""
         await websocket.accept()
         try:
-            raw = await asyncio.wait_for(
-                websocket.receive_text(), timeout=settings.handshake_timeout_seconds
-            )
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=settings.handshake_timeout_seconds)
         except asyncio.TimeoutError:
             metrics.HANDSHAKES.labels(result="rejected").inc()
             await websocket.close(code=CLOSE_BAD_HANDSHAKE, reason="handshake timeout")

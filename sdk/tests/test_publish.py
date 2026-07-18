@@ -5,8 +5,7 @@ from __future__ import annotations
 import textwrap
 
 import pytest
-
-from conftest import FakeResponse, FakeSession
+from conftest import FakeResponse
 from nautobot_remote_jobs_sdk.cli import build_parser, main
 from nautobot_remote_jobs_sdk.cli.publish import (
     DIGEST_RE,
@@ -106,10 +105,7 @@ def test_resolve_digest_plain_200(fake_session):
 
 def test_resolve_digest_bearer_flow_docker_hub(fake_session):
     """Anonymous Docker Hub: 401 challenge -> token fetch -> retry with Bearer."""
-    challenge = (
-        'Bearer realm="https://auth.docker.io/token",'
-        'service="registry.docker.io"'
-    )
+    challenge = 'Bearer realm="https://auth.docker.io/token",' 'service="registry.docker.io"'
     state = {"heads": 0}
 
     def head_handler(method, url, **kwargs):
@@ -120,9 +116,7 @@ def test_resolve_digest_bearer_flow_docker_hub(fake_session):
         return FakeResponse(headers={"Docker-Content-Digest": GOOD_DIGEST})
 
     fake_session.add("HEAD", "registry-1.docker.io/v2/library/alpine/manifests/3.19", head_handler)
-    fake_session.add(
-        "GET", "auth.docker.io/token", FakeResponse(json_data={"token": "hub-token"})
-    )
+    fake_session.add("GET", "auth.docker.io/token", FakeResponse(json_data={"token": "hub-token"}))
 
     assert resolve_digest("alpine:3.19", session=fake_session) == GOOD_DIGEST
     token_call = fake_session.calls_for("GET", "auth.docker.io/token")[0]
@@ -153,9 +147,7 @@ def test_load_manifest_and_build_payload(tmp_path):
     manifest_path = tmp_path / "remote-job.yaml"
     manifest_path.write_text(MANIFEST_YAML)
     manifest = load_manifest(str(manifest_path))
-    payload = build_payload(
-        manifest, "registry.example.com/jobs/rotate-admin:1.4.0", GOOD_DIGEST
-    )
+    payload = build_payload(manifest, "registry.example.com/jobs/rotate-admin:1.4.0", GOOD_DIGEST)
 
     assert payload["name"] == "rotate-local-admin"
     assert payload["image"] == "registry.example.com/jobs/rotate-admin:1.4.0"
@@ -193,29 +185,17 @@ def test_build_payload_rejects_bad_digest(tmp_path):
 
 
 def test_upsert_creates_when_absent(fake_session):
-    fake_session.add(
-        "GET", "/job-definitions/", FakeResponse(json_data={"results": []})
-    )
-    fake_session.add(
-        "POST", "/job-definitions/", FakeResponse(status_code=201, json_data={"id": "new-id"})
-    )
-    action, record = upsert_job_definition(
-        fake_session, "https://nautobot.example.com", {"name": "rotate-local-admin"}
-    )
+    fake_session.add("GET", "/job-definitions/", FakeResponse(json_data={"results": []}))
+    fake_session.add("POST", "/job-definitions/", FakeResponse(status_code=201, json_data={"id": "new-id"}))
+    action, record = upsert_job_definition(fake_session, "https://nautobot.example.com", {"name": "rotate-local-admin"})
     assert action == "created"
     assert record["id"] == "new-id"
 
 
 def test_upsert_patches_when_present(fake_session):
-    fake_session.add(
-        "GET", "/job-definitions/", FakeResponse(json_data={"results": [{"id": "old-id"}]})
-    )
-    fake_session.add(
-        "PATCH", "/job-definitions/old-id/", FakeResponse(json_data={"id": "old-id"})
-    )
-    action, record = upsert_job_definition(
-        fake_session, "https://nautobot.example.com", {"name": "rotate-local-admin"}
-    )
+    fake_session.add("GET", "/job-definitions/", FakeResponse(json_data={"results": [{"id": "old-id"}]}))
+    fake_session.add("PATCH", "/job-definitions/old-id/", FakeResponse(json_data={"id": "old-id"}))
+    action, record = upsert_job_definition(fake_session, "https://nautobot.example.com", {"name": "rotate-local-admin"})
     assert action == "updated"
     assert record["id"] == "old-id"
     assert fake_session.calls_for("PATCH", "/job-definitions/old-id/")
@@ -235,9 +215,7 @@ def test_cli_publish_missing_url_is_error(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("NAUTOBOT_TOKEN", raising=False)
     manifest = tmp_path / "remote-job.yaml"
     manifest.write_text(MANIFEST_YAML)
-    exit_code = main(
-        ["publish", "--image", "reg.example.com/img:1", "--manifest", str(manifest)]
-    )
+    exit_code = main(["publish", "--image", "reg.example.com/img:1", "--manifest", str(manifest)])
     assert exit_code == 1
     assert "NAUTOBOT_URL" in capsys.readouterr().err
 

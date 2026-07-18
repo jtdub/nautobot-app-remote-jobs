@@ -16,7 +16,7 @@ from typing import AsyncIterator
 DIGEST_REFERENCE_RE = re.compile(r"@sha256:[0-9a-f]{64}$")
 
 #: Default tmpfs mounted at /tmp inside job containers (read-only rootfs).
-DEFAULT_TMPFS = {"/tmp": "rw,nosuid,nodev,size=67108864"}
+DEFAULT_TMPFS = {"/tmp": "rw,nosuid,nodev,size=67108864"}  # noqa: S108 - tmpfs inside the job container
 
 #: Default non-root user for job containers ("nobody").
 DEFAULT_USER = "65534:65534"
@@ -38,9 +38,7 @@ def ensure_digest_reference(image: str) -> str:
     """
     match = DIGEST_REFERENCE_RE.search(image)
     if not match:
-        raise ImageReferenceError(
-            f"refusing to run image without a sha256 digest reference: {image!r}"
-        )
+        raise ImageReferenceError(f"refusing to run image without a sha256 digest reference: {image!r}")
     return match.group(0)[1:]  # strip the leading "@"
 
 
@@ -73,7 +71,7 @@ class ContainerSpec:
     no_new_privileges: bool = True
     user: str = DEFAULT_USER
     network_mode: str = "bridge"
-    working_dir: str = "/tmp"
+    working_dir: str = "/tmp"  # noqa: S108 - container tmpfs workdir
 
 
 class ContainerHandle(abc.ABC):

@@ -61,9 +61,7 @@ class StateStore:
             {"worker_id": state.worker_id, "session_secret": state.session_secret},
             indent=2,
         )
-        fd, tmp_name = tempfile.mkstemp(
-            dir=str(self._path.parent), prefix=".state-", suffix=".tmp"
-        )
+        fd, tmp_name = tempfile.mkstemp(dir=str(self._path.parent), prefix=".state-", suffix=".tmp")
         try:
             os.fchmod(fd, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as handle:

@@ -42,10 +42,11 @@ from __future__ import annotations
 import logging
 import os
 import socket
-import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
+
+import tomllib
 
 logger = logging.getLogger(__name__)
 
@@ -107,9 +108,7 @@ def _parse_secret_mounts_env(value: str) -> list[SecretMount]:
     for item in _parse_csv(value):
         source, sep, target = item.partition(":")
         if not sep or not source or not target:
-            raise ConfigError(
-                f"invalid secret mount {item!r}; expected 'source:target'"
-            )
+            raise ConfigError(f"invalid secret mount {item!r}; expected 'source:target'")
         mounts.append(SecretMount(source=source, target=target))
     return mounts
 
@@ -129,7 +128,7 @@ class WorkerConfig:
     registry_auth: dict[str, dict[str, str]] = field(default_factory=dict)
     log_sink_override: dict[str, Any] | None = None
     state_dir: Path = DEFAULT_STATE_DIR
-    health_host: str = "0.0.0.0"
+    health_host: str = "0.0.0.0"  # noqa: S104 - containerized agent health endpoint
     health_port: int = 8080
     memory_limit_bytes: int | None = None
     cpu_limit: float | None = None
@@ -226,9 +225,7 @@ class WorkerConfig:
         if "REMOTE_WORKER_PASS_ENV" in env:
             self.pass_env = _parse_csv(env["REMOTE_WORKER_PASS_ENV"])
         if "REMOTE_WORKER_SECRET_MOUNTS" in env:
-            self.secret_mounts = _parse_secret_mounts_env(
-                env["REMOTE_WORKER_SECRET_MOUNTS"]
-            )
+            self.secret_mounts = _parse_secret_mounts_env(env["REMOTE_WORKER_SECRET_MOUNTS"])
         if "REMOTE_WORKER_STATE_DIR" in env:
             self.state_dir = Path(env["REMOTE_WORKER_STATE_DIR"])
         if "REMOTE_WORKER_HEALTH_HOST" in env:

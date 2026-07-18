@@ -119,7 +119,7 @@ def _apply_failover(run, zone):
 
 
 @transaction.atomic
-def submit_run(definition, user, inputs, dryrun=False, approved=True):
+def submit_run(definition, user, inputs, dryrun=False, approved=True):  # pylint: disable=unused-argument
     """Create the RemoteJobRun (and children for per_device/fan_out) and notify workers.
 
     Returns the parent/only RemoteJobRun. Dispatch-level failures produce a run

@@ -37,7 +37,7 @@ class ExecutionZoneUIViewSet(NautobotUIViewSet):
     serializer_class = serializers.ExecutionZoneSerializer
     table_class = tables.ExecutionZoneTable
 
-    def get_extra_context(self, request, instance):
+    def get_extra_context(self, request, instance=None):
         context = super().get_extra_context(request, instance)
         if instance is not None:
             context["membership_rules"] = instance.membership_rules.all()
@@ -66,7 +66,7 @@ class WorkerUIViewSet(NautobotUIViewSet):
     serializer_class = serializers.WorkerSerializer
     table_class = tables.WorkerTable
 
-    def get_extra_context(self, request, instance):
+    def get_extra_context(self, request, instance=None):
         context = super().get_extra_context(request, instance)
         if instance is not None:
             context["runs_table"] = tables.RemoteJobRunTable(
@@ -108,7 +108,7 @@ class RemoteJobRunUIViewSet(NautobotUIViewSet):
     table_class = tables.RemoteJobRunTable
     action_buttons = ()
 
-    def get_extra_context(self, request, instance):
+    def get_extra_context(self, request, instance=None):
         context = super().get_extra_context(request, instance)
         if instance is not None:
             context["children_table"] = tables.RemoteJobRunTable(

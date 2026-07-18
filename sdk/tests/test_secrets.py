@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from jinja2.exceptions import SecurityError
-
 from conftest import FakeResponse, FakeSession
+from jinja2.exceptions import SecurityError
 from nautobot_remote_jobs_sdk import redaction
 from nautobot_remote_jobs_sdk.secrets import SecretNotFoundError, SecretsClient, _render_parameters
 from nautobot_remote_jobs_sdk.secrets.providers import (
@@ -19,7 +18,6 @@ from nautobot_remote_jobs_sdk.secrets.registry import (
     UnknownProviderError,
     default_registry,
 )
-
 
 # -- providers ---------------------------------------------------------------
 
@@ -128,9 +126,7 @@ def _wire_directory(session: FakeSession, provider: str, parameters: dict) -> No
     session.add(
         "GET",
         f"/api/extras/secrets/{SECRET_ID}/",
-        FakeResponse(
-            json_data={"id": SECRET_ID, "provider": provider, "parameters": parameters}
-        ),
+        FakeResponse(json_data={"id": SECRET_ID, "provider": provider, "parameters": parameters}),
     )
 
 
@@ -167,9 +163,7 @@ def test_secrets_client_renders_jinja_with_obj(monkeypatch, fake_session):
 
 
 def test_secrets_client_group_not_found(fake_session):
-    fake_session.add(
-        "GET", "/api/extras/secrets-groups/", FakeResponse(json_data={"results": []})
-    )
+    fake_session.add("GET", "/api/extras/secrets-groups/", FakeResponse(json_data={"results": []}))
     client = SecretsClient(fake_session, "https://nautobot.example.com")
     with pytest.raises(SecretNotFoundError, match="missing-group"):
         client.get("missing-group")

@@ -45,9 +45,7 @@ class HealthServer:
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         try:
             try:
-                head = await asyncio.wait_for(
-                    reader.readuntil(b"\r\n\r\n"), timeout=5.0
-                )
+                head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5.0)
             except (asyncio.IncompleteReadError, asyncio.LimitOverrunError, TimeoutError, asyncio.TimeoutError):
                 return
             if len(head) > _MAX_HEADER_BYTES:
@@ -80,5 +78,6 @@ class HealthServer:
             f"HTTP/1.1 {status} {reason}\r\n"
             "Content-Type: application/json\r\n"
             f"Content-Length: {len(body)}\r\n"
-            "Connection: close\r\n\r\n".encode("latin-1") + body
+            "Connection: close\r\n\r\n".encode("latin-1")
+            + body
         )

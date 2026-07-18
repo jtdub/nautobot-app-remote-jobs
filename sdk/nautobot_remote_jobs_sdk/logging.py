@@ -111,9 +111,7 @@ class LogClient:
         if self._thread is not None:
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._flush_loop, name="remote-jobs-log-flusher", daemon=True
-        )
+        self._thread = threading.Thread(target=self._flush_loop, name="remote-jobs-log-flusher", daemon=True)
         self._thread.start()
 
     def _flush_loop(self) -> None:
@@ -164,11 +162,10 @@ class JobLogger:
         stream = self._echo_stream if self._echo_stream is not None else sys.stdout
         try:
             stream.write(
-                f"{entry['timestamp']} [{entry['level'].upper()}] "
-                f"{entry['grouping']}: {entry['message']}\n"
+                f"{entry['timestamp']} [{entry['level'].upper()}] " f"{entry['grouping']}: {entry['message']}\n"
             )
             stream.flush()
-        except Exception:  # noqa: BLE001 - echo failures must not break the job
+        except Exception:  # noqa: BLE001, S110 - echo failures must not break the job
             pass
 
     def debug(self, message: str, grouping: Optional[str] = None) -> None:

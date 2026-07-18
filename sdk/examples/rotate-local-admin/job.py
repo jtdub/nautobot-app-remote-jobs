@@ -46,8 +46,8 @@ def run(ctx):
     # TACACS admin credentials, resolved locally in this container from the
     # provider referenced by the "tacacs-prod" SecretsGroup. The values are
     # auto-registered with the redactor: printing them yields "(redacted)".
-    admin_user = ctx.secrets.get("tacacs-prod", access_type="Generic", secret_type="username")
-    admin_pass = ctx.secrets.get("tacacs-prod", access_type="Generic", secret_type="password")
+    admin_user = ctx.secrets.get("tacacs-prod", access_type="Generic", secret_type="username")  # noqa: S106 - type selector, not a credential
+    admin_pass = ctx.secrets.get("tacacs-prod", access_type="Generic", secret_type="password")  # noqa: S106 - type selector, not a credential
 
     report_lines = []
     for device in devices:
@@ -65,7 +65,7 @@ def run(ctx):
         ctx.logger.success(f"Rotated local admin on {name}", grouping=name)
         report_lines.append(f"{name}: rotated")
 
-    report_path = "/tmp/rotation-report.txt"
+    report_path = "/tmp/rotation-report.txt"  # noqa: S108 - container tmpfs, not host /tmp
     with open(report_path, "w", encoding="utf-8") as handle:
         handle.write("\n".join(report_lines) + "\n")
     artifact_id = ctx.artifacts.upload(report_path, name="rotation-report.txt")

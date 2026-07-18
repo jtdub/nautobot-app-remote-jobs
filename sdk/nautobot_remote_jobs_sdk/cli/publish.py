@@ -159,14 +159,10 @@ def resolve_digest(
             headers["Authorization"] = f"Bearer {token}"
             response = http.head(manifest_url, headers=headers, timeout=30)
         elif basic_auth is None:
-            raise PublishError(
-                f"Registry {host} requires credentials "
-                "(--registry-username/--registry-password)"
-            )
+            raise PublishError(f"Registry {host} requires credentials " "(--registry-username/--registry-password)")
     if response.status_code != 200:
         raise PublishError(
-            f"Could not resolve manifest for {repository}:{tag} on {host}: "
-            f"HTTP {response.status_code}"
+            f"Could not resolve manifest for {repository}:{tag} on {host}: " f"HTTP {response.status_code}"
         )
 
     resolved = response.headers.get("Docker-Content-Digest", "")
@@ -244,9 +240,7 @@ def upsert_job_definition(
 
     if results:
         existing_id = results[0]["id"]
-        response = session.patch(
-            join_url(endpoint, str(existing_id)), json=payload, timeout=30
-        )
+        response = session.patch(join_url(endpoint, str(existing_id)), json=payload, timeout=30)
         response.raise_for_status()
         return "updated", response.json()
 
@@ -323,9 +317,7 @@ def run(args: argparse.Namespace) -> int:
         if not DIGEST_RE.match(digest):
             raise PublishError(f"--digest {digest!r} does not match sha256:<64 hex chars>")
     else:
-        digest = resolve_digest(
-            args.image, username=args.registry_username, password=args.registry_password
-        )
+        digest = resolve_digest(args.image, username=args.registry_username, password=args.registry_password)
         print(f"Resolved {args.image} -> {digest}")
 
     payload = build_payload(manifest, args.image, digest)

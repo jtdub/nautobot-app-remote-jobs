@@ -10,9 +10,7 @@ from nautobot_remote_jobs_sdk import redaction
 
 def test_redact_masks_registered_values():
     redaction.register("hunter2secret")
-    assert redaction.redact("the password is hunter2secret!") == (
-        f"the password is {redaction.MASK}!"
-    )
+    assert redaction.redact("the password is hunter2secret!") == (f"the password is {redaction.MASK}!")
 
 
 def test_redact_ignores_unregistered_text():

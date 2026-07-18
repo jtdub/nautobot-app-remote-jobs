@@ -88,10 +88,7 @@ def main(func: JobFunc) -> Callable[[], NoReturn]:
 
     entrypoint.__wrapped_job__ = func  # type: ignore[attr-defined]
 
-    if (
-        func.__globals__.get("__name__") == "__main__"
-        and not os.environ.get(NO_AUTORUN_ENV)
-    ):
+    if func.__globals__.get("__name__") == "__main__" and not os.environ.get(NO_AUTORUN_ENV):
         entrypoint()
 
     return entrypoint

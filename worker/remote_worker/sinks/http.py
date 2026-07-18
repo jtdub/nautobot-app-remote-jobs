@@ -57,9 +57,7 @@ class HttpLogSink(BatchingLogSink):
     def _headers(self) -> dict[str, str]:
         timestamp = str(int(time.time()))
         nonce = uuid.uuid4().hex
-        signature = compute_signature(
-            self._worker_id, timestamp, nonce, self._secret_provider()
-        )
+        signature = compute_signature(self._worker_id, timestamp, nonce, self._secret_provider())
         return {
             "X-Remote-Worker-Id": self._worker_id,
             "X-Remote-Worker-Timestamp": timestamp,
@@ -71,9 +69,7 @@ class HttpLogSink(BatchingLogSink):
         suffix = "console" if kind == KIND_CONSOLE else "logs"
         return f"{self._base_url}/api/plugins/remote-jobs/runs/{run_id}/{suffix}/"
 
-    async def _send(
-        self, run_id: str, kind: str, sequence: int, entries: list[dict[str, Any]]
-    ) -> None:
+    async def _send(self, run_id: str, kind: str, sequence: int, entries: list[dict[str, Any]]) -> None:
         url = self._url(run_id, kind)
         body = {"client_sequence": sequence, "entries": entries}
         last_error: Exception | None = None
@@ -86,21 +82,25 @@ class HttpLogSink(BatchingLogSink):
                 if 400 <= response.status_code < 500 and response.status_code != 429:
                     logger.error(
                         "log batch rejected: HTTP %d for %s seq=%d: %s",
-                        response.status_code, url, sequence, response.text[:300],
+                        response.status_code,
+                        url,
+                        sequence,
+                        response.text[:300],
                     )
                     return
                 last_error = RuntimeError(f"HTTP {response.status_code}")
             except httpx.HTTPError as exc:
                 last_error = exc
-            delay = min(_RETRY_CAP_SECONDS, _RETRY_BASE_SECONDS * (2 ** attempt))
+            delay = min(_RETRY_CAP_SECONDS, _RETRY_BASE_SECONDS * (2**attempt))
             logger.warning(
                 "log batch delivery failed (%s), retrying in %.1fs (%d/%d)",
-                last_error, delay, attempt + 1, self._max_attempts,
+                last_error,
+                delay,
+                attempt + 1,
+                self._max_attempts,
             )
             await asyncio.sleep(delay)
-        raise RuntimeError(
-            f"giving up delivering {kind} batch seq={sequence} for run {run_id}: {last_error}"
-        )
+        raise RuntimeError(f"giving up delivering {kind} batch seq={sequence} for run {run_id}: {last_error}")
 
     async def _close(self) -> None:
         await self._client.aclose()
