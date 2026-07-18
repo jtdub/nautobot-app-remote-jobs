@@ -1,0 +1,32 @@
+{% extends "generic/object_retrieve.html" %}
+
+{% block extra_buttons %}
+    {% if object.enabled and perms.nautobot_remote_jobs.add_remotejobrun %}
+        <a href="{% url 'plugins:nautobot_remote_jobs:jobdefinition_run' pk=object.pk %}" class="btn btn-primary">
+            <i class="mdi mdi-play" aria-hidden="true"></i> Run
+        </a>
+    {% endif %}
+{% endblock extra_buttons %}
+
+{% block content_right_page %}
+    <div class="card mb-3">
+        <div class="card-header"><strong>Recent Runs</strong></div>
+        <table class="table table-hover">
+            <thead>
+                <tr><th>Run</th><th>State</th><th>Zone</th><th>Queued</th></tr>
+            </thead>
+            <tbody>
+                {% for run in object.runs.all|slice:":10" %}
+                    <tr>
+                        <td><a href="{% url 'plugins:nautobot_remote_jobs:remotejobrun' pk=run.pk %}">{{ run.pk|truncatechars:13 }}</a></td>
+                        <td>{{ run.state }}</td>
+                        <td>{{ run.zone|default:"—" }}</td>
+                        <td>{{ run.queued_at|default:"—" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-muted">No runs yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock content_right_page %}

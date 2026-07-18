@@ -52,7 +52,7 @@ namespace = Collection("nautobot_remote_jobs")
 namespace.configure(
     {
         "nautobot_remote_jobs": {
-            "nautobot_ver": "3.0.0",
+            "nautobot_ver": "3.2.0b1",
             "project_name": "remote-jobs",
             "python_ver": "3.12",
             "local": False,

@@ -1,0 +1,61 @@
+{{- if .Values.rpcConsumer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-rpc-consumer
+  labels:
+    app.kubernetes.io/name: remote-jobs-rpc-consumer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.rpcConsumer.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: remote-jobs-rpc-consumer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: remote-jobs-rpc-consumer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: rpc-consumer
+          image: "{{ .Values.rpcConsumer.image.repository }}:{{ .Values.rpcConsumer.image.tag }}"
+          command: ["nautobot-server", "remote_jobs_rpc_consumer"]
+          envFrom:
+            - secretRef:
+                name: {{ .Values.rpcConsumer.envFromSecret }}
+{{- end }}
+---
+{{- if .Values.logConsumer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-log-consumer
+  labels:
+    app.kubernetes.io/name: remote-jobs-log-consumer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.logConsumer.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: remote-jobs-log-consumer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: remote-jobs-log-consumer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: log-consumer
+          image: "{{ .Values.logConsumer.image.repository }}:{{ .Values.logConsumer.image.tag }}"
+          command:
+            - nautobot-server
+            - remote_jobs_log_consumer
+            - --bootstrap-servers
+            - {{ .Values.logConsumer.bootstrapServers | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.logConsumer.envFromSecret }}
+{{- end }}

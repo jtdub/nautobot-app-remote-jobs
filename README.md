@@ -1,66 +1,111 @@
-# Remote Jobs
-
-<!--
-Developer Note - Remove Me!
-
-The README will have certain links/images broken until the PR is merged into `develop`. Update the GitHub links with whichever branch you're using (main etc.) if different.
-
-The logo of the project is a placeholder (docs/images/icon-remote-jobs.png) - please replace it with your app icon, making sure it's at least 200x200px and has a transparent background!
-
-To avoid extra work and temporary links, make sure that publishing docs (or merging a PR) is done at the same time as setting up the docs site on RTD, then test everything.
--->
+# nautobot-app-remote-jobs
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jtdub/nautobot-app-remote-jobs/develop/docs/images/icon-remote-jobs.png" class="logo" height="200px">
   <br>
   <a href="https://github.com/jtdub/nautobot-app-remote-jobs/actions"><img src="https://github.com/jtdub/nautobot-app-remote-jobs/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <a href="https://docs.nautobot.com/projects/remote-jobs/en/latest/"><img src="https://readthedocs.org/projects/nautobot-app-remote-jobs/badge/"></a>
-  <a href="https://pypi.org/project/remote-jobs/"><img src="https://img.shields.io/pypi/v/remote-jobs"></a>
-  <a href="https://pypi.org/project/remote-jobs/"><img src="https://img.shields.io/pypi/dm/remote-jobs"></a>
+  <a href="https://pypi.org/project/nautobot-remote-jobs/"><img src="https://img.shields.io/pypi/v/nautobot-remote-jobs"></a>
   <br>
   An <a href="https://networktocode.com/nautobot-apps/">App</a> for <a href="https://nautobot.com/">Nautobot</a>.
 </p>
 
 ## Overview
 
-> Developer Note: Add a long (2-3 paragraphs) description of what the App does, what problems it solves, what functionality it adds to Nautobot, what external systems it works with etc.
+Nautobot's built-in Jobs execute inside the Nautobot deployment with direct ORM access — bypassing object permissions, granting every job database-superuser-equivalent access, and forcing worker deployments to be complete Nautobot installations. This project introduces a second job execution system in which:
 
-### Screenshots
+- **Job code runs in isolated containers on remote workers**, never inside Nautobot.
+- **Workers interact with Nautobot exclusively through the REST API** using short-lived tokens scoped to the launching user. No ORM, no DB credentials, no Nautobot codebase on the worker. Remote jobs run with the launcher's ObjectPermissions.
+- **Workers deploy into named execution zones.** Devices map to zones through configurable membership rules (locations, roles, prefixes, dynamic groups). Jobs targeting a device automatically execute on a worker in that device's zone, with fan-out, failover, and wait policies.
+- **Workers connect outbound** to a control-plane gateway over TLS WebSocket and speak JSON-RPC 2.0. Nautobot never initiates connections to workers.
+- **Results, logs, and console output land in core `JobResult` / `JobLogEntry` / `JobConsoleEntry` models**, so the existing Job Results UI, saved views, filters, and cancel button work unchanged.
 
-> Developer Note: Add any representative screenshots of the App in action. These images should also be added to the `docs/user/app_use_cases.md` section.
+The complete design is in [SPEC.md](SPEC.md). Target: Nautobot >= 3.2.
 
-> Developer Note: Place the files in the `docs/images/` folder and link them using only full URLs from GitHub, for example: `![Overview](https://raw.githubusercontent.com/jtdub/nautobot-app-remote-jobs/develop/docs/images/app-overview.png)`. This absolute static linking is required to ensure the README renders properly in GitHub, the docs site, and any other external sites like PyPI.
+## Repository layout (mono-repo)
 
-More screenshots can be found in the [Using the App](https://docs.nautobot.com/projects/remote-jobs/en/latest/user/app_use_cases/) page in the documentation. Here's a quick overview of some of the app's added functionality:
+Four distributable artifacts, one repo:
 
-![](https://raw.githubusercontent.com/jtdub/nautobot-app-remote-jobs/develop/docs/images/placeholder.png)
+| Path | Artifact | Description |
+| --- | --- | --- |
+| `nautobot_remote_jobs/` (+ root `pyproject.toml`) | `nautobot-remote-jobs` | The Nautobot app: models, UI, REST API, dispatch, scheduler, cancel strategy, RPC bridge consumer, Kafka log consumer |
+| `gateway/` | `remote-jobs-gateway` | Stateless FastAPI WebSocket gateway bridging worker JSON-RPC to Redis pub/sub. No DB access |
+| `worker/` | `remote-worker` | Async worker agent: enrollment, claim loop, Docker container runtime with hardening defaults, log sinks |
+| `sdk/` | `nautobot-remote-jobs-sdk` | The library job code imports (`ctx.api`, `ctx.logger`, `ctx.secrets`, ...) plus the `remote-jobs publish` CLI |
+| `deploy/` | — | docker compose and Helm deployment examples |
+| `development/` | — | Nautobot development environment (invoke + docker compose), pinned to 3.2 |
 
-## Try it out!
+## Quick tour
 
-> Developer Note: Only keep this section if appropriate. Update link to correct sandbox.
+1. **Define a job**: build an OCI image with your job code (using the SDK), describe it in `remote-job.yaml`, and publish it:
 
-This App is installed in the Nautobot Community Sandbox found over at [demo.nautobot.com](https://demo.nautobot.com/)!
+   ```bash
+   remote-jobs publish --image registry.example.com/jobs/rotate-admin:1.4.0 \
+       --url https://nautobot.example.com --token $NAUTOBOT_TOKEN
+   ```
 
-> For a full list of all the available always-on sandbox environments, head over to the main page on [networktocode.com](https://www.networktocode.com/nautobot/sandbox-environments/).
+2. **Create an execution zone** and membership rules in the Nautobot UI (Remote Jobs → Execution Zones), then create a worker enrollment token (Remote Jobs → Enrollment Tokens; plaintext shown once).
 
-## Documentation
+3. **Deploy a worker** in the zone:
 
-Full documentation for this App can be found over on the [Nautobot Docs](https://docs.nautobot.com) website:
+   ```bash
+   docker run -d -v /var/run/docker.sock:/var/run/docker.sock \
+       -v remote-worker-state:/var/lib/remote-worker \
+       -e REMOTE_JOBS_URL=https://nautobot.example.com \
+       -e REMOTE_JOBS_GATEWAY_URL=wss://remote-jobs-gw.example.com/ws/worker \
+       -e REMOTE_JOBS_ENROLL_TOKEN=<token> \
+       remote-worker:latest
+   ```
 
-- [User Guide](https://docs.nautobot.com/projects/remote-jobs/en/latest/user/app_overview/) - Overview, Using the App, Getting Started.
-- [Administrator Guide](https://docs.nautobot.com/projects/remote-jobs/en/latest/admin/install/) - How to Install, Configure, Upgrade, or Uninstall the App.
-- [Developer Guide](https://docs.nautobot.com/projects/remote-jobs/en/latest/dev/contributing/) - Extending the App, Code Reference, Contribution Guide.
-- [Release Notes / Changelog](https://docs.nautobot.com/projects/remote-jobs/en/latest/admin/release_notes/).
-- [Frequently Asked Questions](https://docs.nautobot.com/projects/remote-jobs/en/latest/user/faq/).
+4. **Run it**: Remote Jobs → Job Definitions → Run. The form renders from the job's JSON Schema; results, logs, and live console stream into the core Job Result view.
 
-### Contributing to the Documentation
+## Installation (app)
 
-You can find all the Markdown source for the App documentation under the [`docs`](https://github.com/jtdub/nautobot-app-remote-jobs/tree/develop/docs) folder in this repository. For simple edits, a Markdown capable editor is sufficient: clone the repository and edit away.
+```bash
+pip install nautobot-remote-jobs
+```
 
-If you need to view the fully-generated documentation site, you can build it with [MkDocs](https://www.mkdocs.org/). A container hosting the documentation can be started using the `invoke` commands (details in the [Development Environment Guide](https://docs.nautobot.com/projects/remote-jobs/en/latest/dev/dev_environment/#docker-development-environment)) on [http://localhost:8001](http://localhost:8001). Using this container, as your changes to the documentation are saved, they will be automatically rebuilt and any pages currently being viewed will be reloaded in your browser.
+```python
+# nautobot_config.py
+PLUGINS = ["nautobot_remote_jobs"]
+PLUGINS_CONFIG = {
+    "nautobot_remote_jobs": {
+        "nautobot_url": "https://nautobot.example.com",   # advertised to workers
+        "gateway_internal_token": "<shared secret with the gateway>",
+        # "worker_ttl_seconds": 90,
+        # "lease_seconds": 120,
+        # "log_sink_config": {"type": "http"},
+    }
+}
+```
 
-Any PRs with fixes or improvements are very welcome!
+Then run migrations and start the RPC bridge consumer alongside your web/worker processes:
 
-## Questions
+```bash
+nautobot-server migrate
+nautobot-server remote_jobs_rpc_consumer
+```
 
-For any questions or comments, please check the [FAQ](https://docs.nautobot.com/projects/remote-jobs/en/latest/user/faq/) first. Feel free to also swing by the [Network to Code Slack](https://networktocode.slack.com/) (channel `#nautobot`), sign up [here](http://slack.networktocode.com/) if you don't have an account.
+See `deploy/` for full compose and Helm examples, and `docs/` for the complete documentation set.
+
+## Development
+
+The `development/` environment is the standard Nautobot app dev stack:
+
+```bash
+poetry install
+poetry shell
+invoke build && invoke start   # Nautobot 3.2 + Postgres + Redis
+invoke unittest                # app test suite
+```
+
+Component test suites run independently:
+
+```bash
+(cd gateway && python -m pytest)
+(cd worker && python -m pytest)
+(cd sdk && python -m pytest)
+```
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
