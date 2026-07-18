@@ -1,0 +1,49 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/jtdub/nautobot-app-remote-jobs/develop/nautobot_remote_jobs/app-config-schema.json",
+    "$comment": "TBD: Update $id, replace `develop` with the future release tag",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "worker_ttl_seconds": {
+            "type": "integer",
+            "default": 90,
+            "description": "Heartbeat TTL for Worker.status (SPEC 4.4)."
+        },
+        "lease_seconds": {
+            "type": "integer",
+            "default": 120,
+            "description": "Claim lease duration (SPEC 6.2)."
+        },
+        "last_seen_throttle_seconds": {
+            "type": "integer",
+            "default": 15,
+            "description": "Minimum interval between Worker.last_seen writes (SPEC 4.4)."
+        },
+        "token_extra_ttl_seconds": {
+            "type": "integer",
+            "default": 60,
+            "description": "Added to timeout+grace for scoped token expiry (SPEC 7.3)."
+        },
+        "gateway_internal_token": {
+            "type": "string",
+            "default": "",
+            "description": "Shared secret the gateway presents on /internal/verify-session/."
+        },
+        "nautobot_url": {
+            "type": "string",
+            "default": "",
+            "description": "Public URL advertised to workers in job offers (SPEC 8.1)."
+        },
+        "redis_url": {
+            "type": ["string", "null"],
+            "default": null,
+            "description": "Redis URL for gateway bridging; defaults to CELERY_BROKER_URL."
+        },
+        "log_sink_config": {
+            "type": "object",
+            "default": {"type": "http"},
+            "description": "Delivered to agents in worker.hello (SPEC 10)."
+        }
+    }
+}

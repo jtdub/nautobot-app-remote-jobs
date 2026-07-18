@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load form_helpers %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <h1>Run: {{ object.name }}</h1>
+            {% if object.description %}<p class="text-muted">{{ object.description }}</p>{% endif %}
+            <div class="card">
+                <div class="card-header"><strong>Job Inputs</strong></div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% if form.fields %}
+                            {% for field in form %}
+                                {% render_field field %}
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">This job takes no inputs.</p>
+                        {% endif %}
+                        <div class="text-end mt-3">
+                            <a href="{% url 'plugins:nautobot_remote_jobs:jobdefinition' pk=object.pk %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="mdi mdi-play" aria-hidden="true"></i> Run Job
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-header"><strong>Execution</strong></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Image</dt><dd class="col-sm-8"><code>{{ object.image_with_digest }}</code></dd>
+                        <dt class="col-sm-4">Zone policy</dt><dd class="col-sm-8">{{ object.get_zone_policy_display }}</dd>
+                        <dt class="col-sm-4">Timeout</dt><dd class="col-sm-8">{{ object.timeout_seconds }}s</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

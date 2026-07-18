@@ -1,0 +1,31 @@
+{% extends "generic/object_retrieve.html" %}
+{% load render_table from django_tables2 %}
+
+{% block extra_buttons %}
+    <a href="{% url 'extras:jobresult' pk=object.job_result.pk %}" class="btn btn-info">
+        <i class="mdi mdi-text-box-search-outline" aria-hidden="true"></i> Job Result (logs / console)
+    </a>
+    {% if not object.is_terminal and perms.nautobot_remote_jobs.change_remotejobrun %}
+        <form method="post" action="{% url 'plugins:nautobot_remote_jobs:remotejobrun_cancel' pk=object.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="mdi mdi-stop-circle-outline" aria-hidden="true"></i> Cancel
+            </button>
+        </form>
+    {% endif %}
+{% endblock extra_buttons %}
+
+{% block content_full_width_page %}
+    {% if object.children.exists %}
+        <div class="card mb-3">
+            <div class="card-header"><strong>Child Runs</strong></div>
+            {% render_table children_table %}
+        </div>
+    {% endif %}
+    {% if object.artifacts.exists %}
+        <div class="card mb-3">
+            <div class="card-header"><strong>Artifacts</strong></div>
+            {% render_table artifacts_table %}
+        </div>
+    {% endif %}
+{% endblock content_full_width_page %}

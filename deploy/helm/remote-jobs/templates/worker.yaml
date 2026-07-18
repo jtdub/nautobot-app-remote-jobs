@@ -1,0 +1,47 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels:
+    app.kubernetes.io/name: remote-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}-worker
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: remote-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: remote-worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          env:
+            - name: REMOTE_JOBS_URL
+              value: {{ .Values.worker.nautobotUrl | quote }}
+            - name: REMOTE_JOBS_GATEWAY_URL
+              value: {{ .Values.worker.gatewayUrl | quote }}
+            - name: REMOTE_JOBS_ENROLL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.worker.enrollTokenSecret }}
+                  key: token
+                  optional: true
+          volumeMounts:
+            - name: state
+              mountPath: /var/lib/remote-worker
+  volumeClaimTemplates:
+    - metadata:
+        name: state
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.worker.statePvc.size }}
+{{- end }}

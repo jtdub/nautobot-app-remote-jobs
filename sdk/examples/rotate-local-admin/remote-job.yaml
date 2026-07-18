@@ -1,0 +1,22 @@
+# remote-job.yaml
+---
+name: "rotate-local-admin"
+description: "Rotate local admin passwords on network devices"
+image: "registry.example.com/jobs/rotate-admin"
+zone_policy: "per_device"
+capabilities: ["ssh-access"]
+secrets_groups: ["tacacs-prod"]
+timeout_seconds: 1800
+dryrun_supported: true
+requires_zone_local: true
+inputs:  # JSON Schema
+  type: "object"
+  required: ["devices"]
+  properties:
+    devices:
+      type: "array"
+      items: {type: "string", format: "uuid"}
+      x-remote-jobs-target: "device"
+    commit:
+      type: "boolean"
+      default: false

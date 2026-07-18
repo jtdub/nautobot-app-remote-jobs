@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Zone Coverage Report</h1>
+    <p class="text-muted">{{ device_count }} device(s) evaluated against all enabled zone membership rules.</p>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <strong>Devices matching no zone</strong>
+            <span class="badge text-bg-{% if uncovered %}danger{% else %}success{% endif %}">{{ uncovered|length }}</span>
+        </div>
+        <table class="table table-hover">
+            <thead><tr><th>Device</th><th>Location</th><th>Role</th></tr></thead>
+            <tbody>
+                {% for device in uncovered %}
+                    <tr>
+                        <td><a href="{{ device.get_absolute_url }}">{{ device }}</a></td>
+                        <td>{{ device.location|default:"—" }}</td>
+                        <td>{{ device.role|default:"—" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-success">All devices are covered by a zone.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <strong>Devices matching multiple zones</strong>
+            <span class="badge text-bg-{% if ambiguous %}warning{% else %}success{% endif %}">{{ ambiguous|length }}</span>
+        </div>
+        <table class="table table-hover">
+            <thead><tr><th>Device</th><th>Matching Zones</th><th>Resolved Winner</th></tr></thead>
+            <tbody>
+                {% for device, zones, winner in ambiguous %}
+                    <tr>
+                        <td><a href="{{ device.get_absolute_url }}">{{ device }}</a></td>
+                        <td>
+                            {% for zone in zones %}
+                                <a href="{% url 'plugins:nautobot_remote_jobs:executionzone' pk=zone.pk %}">{{ zone }}</a>{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td><a href="{% url 'plugins:nautobot_remote_jobs:executionzone' pk=winner.pk %}"><strong>{{ winner }}</strong></a> (priority {{ winner.priority }})</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-success">No ambiguous matches.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <strong>Zones with zero online workers</strong>
+            <span class="badge text-bg-{% if empty_zones %}danger{% else %}success{% endif %}">{{ empty_zones|length }}</span>
+        </div>
+        <table class="table table-hover">
+            <thead><tr><th>Zone</th><th>Enrolled Workers</th><th>Failover Policy</th></tr></thead>
+            <tbody>
+                {% for zone in empty_zones %}
+                    <tr>
+                        <td><a href="{% url 'plugins:nautobot_remote_jobs:executionzone' pk=zone.pk %}">{{ zone }}</a></td>
+                        <td>{{ zone.worker_count }}</td>
+                        <td>{{ zone.get_failover_policy_display }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-success">Every enabled zone has online workers.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock content %}

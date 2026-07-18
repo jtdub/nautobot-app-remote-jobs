@@ -1,0 +1,61 @@
+# Example deployment of the remote-jobs control-plane extras and one worker.
+#
+# Assumes an existing Nautobot deployment (web + celery worker + beat + Redis +
+# Postgres) with the nautobot-remote-jobs app installed and configured. This
+# file adds:
+#   - the WebSocket gateway (stateless, scale horizontally)
+#   - the app-side JSON-RPC bridge consumer
+#   - one remote worker agent (normally deployed in the execution zone, shown
+#     here for a single-host demo)
+#
+# See ../../docs for full installation documentation.
+---
+services:
+  gateway:
+    build: "../../gateway"
+    image: "remote-jobs-gateway:latest"
+    environment:
+      GATEWAY_REDIS_URL: "redis://redis:6379/0"
+      GATEWAY_APP_URL: "http://nautobot:8080"
+      GATEWAY_INTERNAL_TOKEN: "${GATEWAY_INTERNAL_TOKEN:?set in .env}"
+      GATEWAY_BIND: "0.0.0.0:8433"
+    ports:
+      - "8433:8433"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8433/healthz')"]
+      interval: "30s"
+      timeout: "5s"
+    restart: "unless-stopped"
+
+  rpc-consumer:
+    # Same image as your Nautobot deployment (it needs the app + ORM access).
+    image: "${NAUTOBOT_IMAGE:-nautobot-remote-jobs-dev:latest}"
+    command: "nautobot-server remote_jobs_rpc_consumer"
+    env_file: "nautobot.env"
+    restart: "unless-stopped"
+
+  # Optional: only when using the Kafka log sink (SPEC 10.2).
+  # log-consumer:
+  #   image: "${NAUTOBOT_IMAGE:-nautobot-remote-jobs-dev:latest}"
+  #   command: "nautobot-server remote_jobs_log_consumer --bootstrap-servers kafka:9092"
+  #   env_file: "nautobot.env"
+  #   restart: "unless-stopped"
+
+  worker:
+    build: "../../worker"
+    image: "remote-worker:latest"
+    environment:
+      REMOTE_JOBS_URL: "http://nautobot:8080"
+      REMOTE_JOBS_GATEWAY_URL: "ws://gateway:8433/ws/worker"
+      # First boot only; remove after the worker persists its session.
+      REMOTE_JOBS_ENROLL_TOKEN: "${REMOTE_JOBS_ENROLL_TOKEN:-}"
+      REMOTE_WORKER_NAME: "compose-worker-1"
+      REMOTE_WORKER_CAPACITY: "4"
+    volumes:
+      - "worker-state:/var/lib/remote-worker"
+      # The agent talks to the container engine to run job containers.
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    restart: "unless-stopped"
+
+volumes:
+  worker-state:

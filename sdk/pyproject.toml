@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nautobot-remote-jobs-sdk"
+version = "0.1.0"
+description = "SDK for writing Nautobot remote jobs: pynautobot, structured logging, worker-local secrets resolution, typed inputs, dryrun, and the remote-jobs publish CLI."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+authors = [{ name = "Network to Code, LLC", email = "opensource@networktocode.com" }]
+keywords = ["nautobot", "remote-jobs", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    # SPEC section 13 pin. pynautobot 3.x is required for the first-class
+    # retries= and exclude_m2m= Api kwargs the SDK relies on.
+    "pynautobot>=3.0,<4.0",
+    "requests>=2.28",
+    "jinja2>=3.0",
+    "jsonschema>=4.7",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+vault = ["hvac>=1.0"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+remote-jobs = "nautobot_remote_jobs_sdk.cli:main"
+
+# Pluggable worker-local secret providers (SPEC section 9). Third-party
+# packages add providers by publishing entry points in this group named
+# after the Nautobot provider slug they implement.
+[project.entry-points."nautobot_remote_jobs_sdk.secrets_providers"]
+environment-variable = "nautobot_remote_jobs_sdk.secrets.providers:EnvironmentVariableProvider"
+text-file = "nautobot_remote_jobs_sdk.secrets.providers:TextFileProvider"
+hashicorp-vault = "nautobot_remote_jobs_sdk.secrets.providers:HashiCorpVaultProvider"
+
+[tool.hatch.build.targets.wheel]
+packages = ["nautobot_remote_jobs_sdk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
