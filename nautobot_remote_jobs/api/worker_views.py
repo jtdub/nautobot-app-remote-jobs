@@ -204,7 +204,12 @@ class RunArtifactsView(WorkerRunScopedView):
         upload_url = request.build_absolute_uri(
             f"/api/plugins/remote-jobs/runs/{run.pk}/artifacts/{artifact.pk}/content/"
         )
-        return Response({"upload_url": upload_url, "artifact_id": str(artifact.pk)})
+        # requires_auth tells the client whether to send the worker/scoped-token
+        # credential on the PUT. This app-owned endpoint always requires it; a
+        # future presigned-URL backend would return the external URL with
+        # requires_auth=False so the client omits the Authorization header (which
+        # would otherwise break a presigned signature).
+        return Response({"upload_url": upload_url, "artifact_id": str(artifact.pk), "requires_auth": True})
 
 
 class RunArtifactContentView(WorkerRunScopedView):

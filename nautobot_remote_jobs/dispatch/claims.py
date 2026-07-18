@@ -62,11 +62,15 @@ def _claim_one(worker, worker_capabilities):
             .order_by("queued_at")
         )
         run = None
+        held_singletons = set()  # definition ids already locked+found held this pass
         for candidate in candidates[:20]:
             required = set(candidate.job_definition.capabilities or [])
             if required and not required.issubset(worker_capabilities):
                 continue
             if candidate.job_definition.singleton:
+                definition_id = candidate.job_definition_id
+                if definition_id in held_singletons:
+                    continue  # already determined held this pass; don't re-lock/re-query
                 # Serialize concurrent claims of the same singleton definition by
                 # locking its row: a peer claiming a *different* PENDING run of
                 # this definition blocks here until we commit, so it then sees our
@@ -74,9 +78,10 @@ def _claim_one(worker, worker_capabilities):
                 # CLAIMED/RUNNING rows is not enough — two workers can each pick a
                 # different PENDING run and neither sees the other's uncommitted
                 # transition (write-skew).
-                JobDefinition.objects.select_for_update().get(pk=candidate.job_definition_id)
+                JobDefinition.objects.select_for_update().only("pk").get(pk=definition_id)
                 if _singleton_held(candidate):
                     # Stays PENDING behind the running one (SPEC 6.2).
+                    held_singletons.add(definition_id)
                     continue
             run = candidate
             break

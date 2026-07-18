@@ -94,24 +94,27 @@ def cancel_run(run, user=None, mode=CancelModeChoices.GRACEFUL):
         notify.publish_cancel(worker_to_notify, run, mode=mode)
         return f"job.cancel ({mode}) sent to worker {worker_to_notify.name}."
 
-    # Parent path only: cancel each non-terminal child on its own worker.
-    if is_parent:
-        _cancel_children(child_ids_to_cancel, user, mode)
-        return f"Cancelled parent run; signalled {len(child_ids_to_cancel)} child run(s)."
-
-    return f"Run is {run.state}."
+    # Only the parent-aggregator path reaches here (every other branch returned
+    # inside the transaction). Cancel each non-terminal child on its own worker.
+    _cancel_children(child_ids_to_cancel, user, mode)
+    return f"Cancelled parent run; signalled {len(child_ids_to_cancel)} child run(s)."
 
 
 def _cancel_children(child_ids, user, mode):
-    """Cancel each still-present child run (fan-out/per_device cancel)."""
+    """Cancel each child run (fan-out/per_device cancel).
+
+    cancel_run re-selects the row FOR UPDATE by pk and reads nothing else off
+    the passed instance, so an unsaved ``RemoteJobRun(pk=...)`` avoids a
+    redundant full-row fetch per child; a since-deleted child surfaces as
+    DoesNotExist from that re-select.
+    """
     from nautobot_remote_jobs.models import RemoteJobRun
 
     for child_id in child_ids:
         try:
-            child = RemoteJobRun.objects.get(pk=child_id)
-        except RemoteJobRun.DoesNotExist:  # pragma: no cover - concurrent completion
+            cancel_run(RemoteJobRun(pk=child_id), user=user, mode=mode)
+        except RemoteJobRun.DoesNotExist:  # pragma: no cover - concurrent deletion
             continue
-        cancel_run(child, user=user, mode=mode)
 
 
 def _record_revoked_by(run, user):
