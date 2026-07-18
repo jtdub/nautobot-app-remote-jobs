@@ -179,6 +179,29 @@ class WorkerAPITest(TestCase):
         self.assertEqual(response.json()["ingested"], 1)
         self.assertEqual(run.job_result.job_log_entries.filter(message="hello").count(), 1)
 
+    def test_client_sequence_body_key_dedupes(self):
+        # Regression (code review #9): clients send the sequence as the
+        # 'client_sequence' body key; the server must read it so at-least-once
+        # retries dedupe instead of duplicating rows.
+        worker = make_worker(self.zone)
+        definition = make_definition(zone=self.zone)
+        run = submit_run(definition, self.user, {})
+        from nautobot_remote_jobs.dispatch import claims
+
+        claims.claim_runs(worker)
+        secret = derive_session_secret(worker)
+        body = {"client_sequence": 1, "entries": [{"level": "info", "message": "once"}]}
+        headers = {
+            "HTTP_AUTHORIZATION": f"Token {secret}",
+            "HTTP_X_REMOTEJOBS_WORKER_ID": str(worker.pk),
+        }
+        first = self.client.post(f"{self.BASE}/runs/{run.pk}/logs/", body, format="json", **headers)
+        self.assertEqual(first.json()["ingested"], 1)
+        # Replay of the same client_sequence is dropped.
+        second = self.client.post(f"{self.BASE}/runs/{run.pk}/logs/", body, format="json", **headers)
+        self.assertEqual(second.json()["ingested"], 0)
+        self.assertEqual(run.job_result.job_log_entries.filter(message="once").count(), 1)
+
     def test_logs_rejected_for_foreign_run(self):
         worker = make_worker(self.zone)
         other_worker = make_worker(self.zone, name="worker-other")

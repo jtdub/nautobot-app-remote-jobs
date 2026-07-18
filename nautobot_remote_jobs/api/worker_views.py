@@ -124,46 +124,58 @@ class WorkerRunScopedView(APIView):
         return None
 
 
-class RunLogsView(WorkerRunScopedView):
+class _BatchIngestView(WorkerRunScopedView):
+    """Shared body for the log and console ingestion endpoints (SPEC 5, 10).
+
+    Subclasses implement ``_write`` with write_log_batch or write_console_batch.
+    """
+
+    def _write(self, run_id, entries, client_sequence):
+        raise NotImplementedError
+
+    def post(self, request, pk):
+        run = self.get_authorized_run(request, pk)
+        if run is None:
+            return Response({"detail": "Unknown run or not yours."}, status=status.HTTP_404_NOT_FOUND)
+        entries = request.data if isinstance(request.data, list) else request.data.get("entries")
+        error = validate_batch_limits(entries)
+        if error:
+            return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
+        sequence = self._batch_sequence(request)
+        try:
+            count = self._write(run.pk, entries, sequence)
+        except UnknownRunError:
+            return Response({"detail": "Unknown run."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"ingested": count})
+
+    @staticmethod
+    def _batch_sequence(request):
+        """Read the client sequence from the header or either body key.
+
+        The worker sink and SDK LogClient send the batch sequence as the
+        ``client_sequence`` body key; the header and ``sequence`` key are
+        accepted too so every producer's dedupe engages (SPEC 10).
+        """
+        header = request.headers.get("X-RemoteJobs-Sequence")
+        if header is not None:
+            return header
+        if isinstance(request.data, dict):
+            return request.data.get("sequence") or request.data.get("client_sequence")
+        return None
+
+
+class RunLogsView(_BatchIngestView):
     """POST /runs/{id}/logs/: batched structured log entries -> JobLogEntry (SPEC 5)."""
 
-    def post(self, request, pk):
-        run = self.get_authorized_run(request, pk)
-        if run is None:
-            return Response({"detail": "Unknown run or not yours."}, status=status.HTTP_404_NOT_FOUND)
-        entries = request.data if isinstance(request.data, list) else request.data.get("entries")
-        error = validate_batch_limits(entries)
-        if error:
-            return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
-        sequence = request.headers.get("X-RemoteJobs-Sequence") or (
-            request.data.get("sequence") if isinstance(request.data, dict) else None
-        )
-        try:
-            count = write_log_batch(run.pk, entries, client_sequence=sequence)
-        except UnknownRunError:
-            return Response({"detail": "Unknown run."}, status=status.HTTP_404_NOT_FOUND)
-        return Response({"ingested": count})
+    def _write(self, run_id, entries, client_sequence):
+        return write_log_batch(run_id, entries, client_sequence=client_sequence)
 
 
-class RunConsoleView(WorkerRunScopedView):
+class RunConsoleView(_BatchIngestView):
     """POST /runs/{id}/console/: batched console output -> JobConsoleEntry (SPEC 5)."""
 
-    def post(self, request, pk):
-        run = self.get_authorized_run(request, pk)
-        if run is None:
-            return Response({"detail": "Unknown run or not yours."}, status=status.HTTP_404_NOT_FOUND)
-        entries = request.data if isinstance(request.data, list) else request.data.get("entries")
-        error = validate_batch_limits(entries)
-        if error:
-            return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
-        sequence = request.headers.get("X-RemoteJobs-Sequence") or (
-            request.data.get("sequence") if isinstance(request.data, dict) else None
-        )
-        try:
-            count = write_console_batch(run.pk, entries, client_sequence=sequence)
-        except UnknownRunError:
-            return Response({"detail": "Unknown run."}, status=status.HTTP_404_NOT_FOUND)
-        return Response({"ingested": count})
+    def _write(self, run_id, entries, client_sequence):
+        return write_console_batch(run_id, entries, client_sequence=client_sequence)
 
 
 class RunArtifactsView(WorkerRunScopedView):

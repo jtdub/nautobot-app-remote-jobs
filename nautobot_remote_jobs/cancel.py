@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 def cancel_run(run, user=None, mode=CancelModeChoices.GRACEFUL):
     """Cancel a run in any non-terminal state.
 
+    - Fan-out/per_device parent (has children, worker=None): cancel every
+      non-terminal child and mark the parent TERMINATED. The parent is an
+      aggregator, not a worker-backed run, so it must not be reaped/retried.
     - PENDING/OFFERED: mark CANCELLED immediately (no worker involvement).
     - CLAIMED/RUNNING with a live worker: publish job.cancel; the worker sends
       job.complete(state=TERMINATED). Fall through to reap is handled by the
@@ -33,13 +36,35 @@ def cancel_run(run, user=None, mode=CancelModeChoices.GRACEFUL):
     from nautobot_remote_jobs.dispatch.tokens import delete_scoped_token
     from nautobot_remote_jobs.models import RemoteJobRun
 
+    is_parent = False
+    child_ids_to_cancel = []
+    worker_to_notify = None
     with transaction.atomic():
         # No select_related here: FOR UPDATE cannot touch the nullable side of
         # an outer join on PostgreSQL.
         run = RemoteJobRun.objects.select_for_update().get(pk=run.pk)
         if run.is_terminal:
             return f"Run is already {run.state}."
-        if run.state in (RunStateChoices.PENDING, RunStateChoices.OFFERED):
+
+        # Parent (fan-out/per_device) aggregator: worker is None but this is not
+        # a "worker gone" case. Cancel the children (each on its own worker) and
+        # terminate the parent directly; never abandon_run it, which would
+        # re-queue a zone-less, unclaimable zombie under any retry policy.
+        children = list(run.children.all())
+        is_parent = bool(children)
+        child_ids_to_cancel = [child.pk for child in children if not child.is_terminal]
+        if is_parent:
+            log_to_result(
+                run.job_result,
+                f"Cancelled by {user or 'system'}; signalling {len(child_ids_to_cancel)} child run(s).",
+            )
+            run.state = RunStateChoices.TERMINATED
+            run.finished_at = timezone.now()
+            run.save(update_fields=["state", "finished_at"])
+            delete_scoped_token(run)
+            run.sync_job_result(revoked_by=user if user is not None else None)
+
+        elif run.state in (RunStateChoices.PENDING, RunStateChoices.OFFERED):
             log_to_result(run.job_result, f"Cancelled by {user or 'system'} before claim.")
             run.transition(RunStateChoices.CANCELLED)
             delete_scoped_token(run)
@@ -47,24 +72,46 @@ def cancel_run(run, user=None, mode=CancelModeChoices.GRACEFUL):
             run.refresh_parent_state()
             return "Cancelled before any worker involvement."
 
-        worker = run.worker
-        if worker is None or worker.status == WorkerStatusChoices.OFFLINE:
-            abandon_run(run, reason=f"Cancel requested by {user or 'system'}; worker offline, reaped.")
+        else:
+            worker = run.worker
+            if worker is None or worker.status == WorkerStatusChoices.OFFLINE:
+                abandon_run(run, reason=f"Cancel requested by {user or 'system'}; worker offline, reaped.")
+                _record_revoked_by(run, user)
+                return "Worker offline; run reaped (ABANDONED)."
+
+            # Terminate path: flag cancel for the job.status poll fallback and push job.cancel.
+            job_result = run.job_result
+            celery_kwargs = dict(job_result.celery_kwargs or {})
+            celery_kwargs["cancel_requested"] = True
+            celery_kwargs["cancel_requested_at"] = timezone.now().isoformat()
+            job_result.celery_kwargs = celery_kwargs
+            job_result.save(update_fields=["celery_kwargs"])
             _record_revoked_by(run, user)
-            return "Worker offline; run reaped (ABANDONED)."
+            log_to_result(run.job_result, f"Terminate requested by {user or 'system'} (mode={mode}).")
+            worker_to_notify = worker
 
-        # Terminate path: flag cancel for the job.status poll fallback and push job.cancel.
-        job_result = run.job_result
-        celery_kwargs = dict(job_result.celery_kwargs or {})
-        celery_kwargs["cancel_requested"] = True
-        celery_kwargs["cancel_requested_at"] = timezone.now().isoformat()
-        job_result.celery_kwargs = celery_kwargs
-        job_result.save(update_fields=["celery_kwargs"])
-        _record_revoked_by(run, user)
-        log_to_result(run.job_result, f"Terminate requested by {user or 'system'} (mode={mode}).")
+    if worker_to_notify is not None:
+        notify.publish_cancel(worker_to_notify, run, mode=mode)
+        return f"job.cancel ({mode}) sent to worker {worker_to_notify.name}."
 
-    notify.publish_cancel(worker, run, mode=mode)
-    return f"job.cancel ({mode}) sent to worker {worker.name}."
+    # Parent path only: cancel each non-terminal child on its own worker.
+    if is_parent:
+        _cancel_children(child_ids_to_cancel, user, mode)
+        return f"Cancelled parent run; signalled {len(child_ids_to_cancel)} child run(s)."
+
+    return f"Run is {run.state}."
+
+
+def _cancel_children(child_ids, user, mode):
+    """Cancel each still-present child run (fan-out/per_device cancel)."""
+    from nautobot_remote_jobs.models import RemoteJobRun
+
+    for child_id in child_ids:
+        try:
+            child = RemoteJobRun.objects.get(pk=child_id)
+        except RemoteJobRun.DoesNotExist:  # pragma: no cover - concurrent completion
+            continue
+        cancel_run(child, user=user, mode=mode)
 
 
 def _record_revoked_by(run, user):

@@ -16,7 +16,7 @@ from nautobot_remote_jobs.constants import (
 )
 from nautobot_remote_jobs.dispatch.submission import _publish_run_event, log_to_result
 from nautobot_remote_jobs.dispatch.tokens import delete_scoped_token, mint_scoped_token
-from nautobot_remote_jobs.models import RemoteJobRun
+from nautobot_remote_jobs.models import JobDefinition, RemoteJobRun
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +66,18 @@ def _claim_one(worker, worker_capabilities):
             required = set(candidate.job_definition.capabilities or [])
             if required and not required.issubset(worker_capabilities):
                 continue
-            if candidate.job_definition.singleton and _singleton_held(candidate):
-                # Stays PENDING behind the running one (SPEC 6.2).
-                continue
+            if candidate.job_definition.singleton:
+                # Serialize concurrent claims of the same singleton definition by
+                # locking its row: a peer claiming a *different* PENDING run of
+                # this definition blocks here until we commit, so it then sees our
+                # CLAIMED run and skips (SPEC 4.1/6.2). Locking only pre-existing
+                # CLAIMED/RUNNING rows is not enough — two workers can each pick a
+                # different PENDING run and neither sees the other's uncommitted
+                # transition (write-skew).
+                JobDefinition.objects.select_for_update().get(pk=candidate.job_definition_id)
+                if _singleton_held(candidate):
+                    # Stays PENDING behind the running one (SPEC 6.2).
+                    continue
             run = candidate
             break
         if run is None:
@@ -110,6 +119,7 @@ def build_job_offer(run, token):
         "definition": definition.name,
         "image": definition.image_with_digest,
         "inputs": run.inputs,
+        "input_schema": definition.input_schema or {},
         "timeout_seconds": definition.timeout_seconds,
         "grace_seconds": definition.grace_seconds,
         "nautobot_url": nautobot_url,

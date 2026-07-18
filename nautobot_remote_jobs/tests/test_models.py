@@ -13,6 +13,7 @@ from nautobot_remote_jobs.tests.helpers import (
     DIGEST,
     make_definition,
     make_run,
+    make_user,
     make_worker,
     make_zone,
 )
@@ -91,6 +92,40 @@ class EnrollmentTokenTest(TestCase):
         token, _ = WorkerEnrollmentToken.generate(zone)
         token.expires = timezone.now() - timedelta(hours=1)
         self.assertFalse(token.is_valid)
+
+
+class ScheduleTest(TestCase):
+    def _schedule(self, **kwargs):
+        from nautobot_remote_jobs.choices import ScheduleIntervalChoices
+        from nautobot_remote_jobs.models import RemoteJobSchedule
+
+        zone = make_zone()
+        definition = make_definition(zone=zone)
+        defaults = {
+            "name": "sched",
+            "job_definition": definition,
+            "user": make_user(),
+            "interval": ScheduleIntervalChoices.CUSTOM,
+            "crontab": "*/5 * * * *",
+            "start_time": timezone.now() - timedelta(hours=1),
+        }
+        defaults.update(kwargs)
+        return RemoteJobSchedule.objects.create(**defaults)
+
+    def test_custom_cron_past_start_time_is_due(self):
+        # Regression (code review #7): a custom-cron schedule whose start_time is
+        # already past must become due and fire, not be stuck forever.
+        schedule = self._schedule()
+        self.assertTrue(schedule.is_due(timezone.now()))
+
+    def test_custom_cron_future_start_time_not_due(self):
+        schedule = self._schedule(start_time=timezone.now() + timedelta(hours=1))
+        self.assertFalse(schedule.is_due(timezone.now()))
+
+    def test_custom_cron_not_due_again_until_next_slot(self):
+        schedule = self._schedule()
+        schedule.last_run_at = timezone.now()
+        self.assertFalse(schedule.is_due(timezone.now()))
 
 
 class RunStateMachineTest(TestCase):

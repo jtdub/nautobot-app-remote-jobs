@@ -9,23 +9,20 @@ Each request body is ``{"client_sequence": N, "entries": [...]}``; the
 server dedupes on ``(run_id, client_sequence)`` so delivery is
 at-least-once with client-side retry.
 
-Requests are authenticated with the worker session identity using the same
-HMAC scheme as the WebSocket handshake (the session secret never transits):
-``X-Remote-Worker-Id``, ``X-Remote-Worker-Timestamp``,
-``X-Remote-Worker-Nonce``, ``X-Remote-Worker-Signature``.
+Requests are authenticated with the worker session credential exactly as the
+app's ``WorkerSessionAuthentication`` expects: ``Authorization: Token
+<session_secret>`` plus ``X-RemoteJobs-Worker-ID``. (The secret only ever
+transits this TLS connection, the same way it does for ``GET /workers/self/``.)
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
-import uuid
 from typing import Any, Callable
 
 import httpx
 
-from ..connection import compute_signature
 from .base import KIND_CONSOLE, BatchingLogSink
 
 logger = logging.getLogger(__name__)
@@ -55,14 +52,9 @@ class HttpLogSink(BatchingLogSink):
         self._client = httpx.AsyncClient(verify=tls_verify, timeout=15.0)
 
     def _headers(self) -> dict[str, str]:
-        timestamp = str(int(time.time()))
-        nonce = uuid.uuid4().hex
-        signature = compute_signature(self._worker_id, timestamp, nonce, self._secret_provider())
         return {
-            "X-Remote-Worker-Id": self._worker_id,
-            "X-Remote-Worker-Timestamp": timestamp,
-            "X-Remote-Worker-Nonce": nonce,
-            "X-Remote-Worker-Signature": signature,
+            "Authorization": f"Token {self._secret_provider()}",
+            "X-RemoteJobs-Worker-ID": self._worker_id,
         }
 
     def _url(self, run_id: str, kind: str) -> str:

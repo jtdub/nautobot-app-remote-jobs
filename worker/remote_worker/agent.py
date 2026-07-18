@@ -8,6 +8,7 @@ journal reconciliation after restarts, and log sink selection.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import time
@@ -574,11 +575,16 @@ class RunTask:
             except ConnectionClosedError:
                 pass  # wait for reconnect and retry
             except rpc.RpcError as exc:
-                if exc.code == rpc.UNKNOWN_RUN:
-                    logger.warning("run %s: server no longer knows this run", self.run_id)
-                    self._complete_acked = True  # nothing more we can do
-                    return
-                logger.warning("run %s: job.complete error: %s", self.run_id, exc)
+                # An application-level RPC error means the server received and
+                # definitively rejected this completion (unknown run, illegal
+                # transition after a reap to ABANDONED, lease expired). Retrying
+                # the identical frame only gets the same rejection and would spin
+                # forever, pinning the RunTask and its capacity slot and leaving
+                # the journal entry behind. Treat it as acknowledged: the run is
+                # already terminal server-side (or the reaper will settle it).
+                logger.warning("run %s: job.complete rejected (%s); giving up", self.run_id, exc)
+                self._complete_acked = True
+                return
             await asyncio.sleep(delay)
             delay = min(_COMPLETE_RETRY_MAX_SECONDS, delay * 2)
 
@@ -606,8 +612,13 @@ class RunTask:
             env["NAUTOBOT_TOKEN"] = str(token)
         env.setdefault("REMOTE_JOBS_RUN_ID", self.run_id)
         env.setdefault("REMOTE_JOBS_ZONE", "")
-        dryrun = bool((self.offer.get("inputs") or {}).get("dryrun", False))
-        env.setdefault("REMOTE_JOBS_DRYRUN", "true" if dryrun else "false")
+        env.setdefault("REMOTE_JOBS_DRYRUN", "false")
+        # Deliver the validated job inputs (and schema) the SDK reads via
+        # Context.from_env; without this ctx.inputs is always empty.
+        env["REMOTE_JOBS_INPUTS"] = json.dumps(self.offer.get("inputs") or {})
+        schema = self.offer.get("input_schema")
+        if schema:
+            env["REMOTE_JOBS_INPUT_SCHEMA"] = json.dumps(schema)
         # Allowlisted pass-through env; never overrides offer-provided values.
         for name in config.pass_env:
             if name in os.environ:

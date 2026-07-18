@@ -85,7 +85,11 @@ class RemoteJobSchedule(ApprovableModelMixin, PrimaryModel):
             try:
                 from croniter import croniter
 
-                base = max(reference, self.start_time) if self.last_run_at is None else self.last_run_at
+                # First fire is anchored at start_time, not at "now": anchoring
+                # to max(now, start_time) would always push the next occurrence
+                # into the future, so a schedule whose start_time is already past
+                # (the normal case) would never become due and never fire.
+                base = self.last_run_at if self.last_run_at is not None else self.start_time
                 return croniter(self.crontab, base).get_next(ret_type=type(reference))
             except ImportError:  # pragma: no cover - croniter is an install requirement
                 return None

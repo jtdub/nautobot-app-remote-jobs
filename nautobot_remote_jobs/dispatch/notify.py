@@ -18,9 +18,11 @@ def get_redis_client():
     """
     import redis
 
-    url = settings.PLUGINS_CONFIG.get("nautobot_remote_jobs", {}).get(
-        "redis_url", getattr(settings, "CELERY_BROKER_URL", "redis://localhost:6379/0")
-    )
+    # redis_url defaults to None in the app's default_settings, so a plain
+    # .get(..., fallback) would return None (the key exists) rather than the
+    # fallback; coalesce explicitly to the Celery broker URL.
+    config = settings.PLUGINS_CONFIG.get("nautobot_remote_jobs", {})
+    url = config.get("redis_url") or getattr(settings, "CELERY_BROKER_URL", None) or "redis://localhost:6379/0"
     return redis.Redis.from_url(url)
 
 

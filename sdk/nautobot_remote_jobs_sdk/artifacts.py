@@ -36,6 +36,7 @@ class ArtifactsClient:
 
     def __init__(self, session: requests.Session, nautobot_url: str, run_id: str) -> None:
         self._session = session
+        self._nautobot_url = nautobot_url.rstrip("/")
         self._base = join_url(nautobot_url, "api/plugins/remote-jobs/runs", run_id, "artifacts")
 
     def upload(
@@ -66,11 +67,13 @@ class ArtifactsClient:
         upload_url = info["upload_url"]
         artifact_id = info["artifact_id"]
 
-        # The upload URL is presigned storage access -- deliberately NOT the
-        # authenticated session (an Authorization header breaks S3-style
-        # presigned PUTs).
+        # When the app hands back its own upload endpoint (the default Django
+        # storage path), the PUT must carry the scoped-token session or it is
+        # rejected 404. An external presigned URL (S3-style) is used bare, since
+        # an Authorization header would break the presigned signature.
+        putter = self._session if upload_url.startswith(self._nautobot_url) else requests
         with open(path, "rb") as handle:
-            put_response = requests.put(
+            put_response = putter.put(
                 upload_url,
                 data=handle,
                 headers={"Content-Type": content_type},

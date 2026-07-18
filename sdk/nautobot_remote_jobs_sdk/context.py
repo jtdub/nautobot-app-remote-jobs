@@ -13,7 +13,7 @@ import json
 import os
 from typing import Any, Dict, Mapping, Optional
 
-from . import http
+from . import http, redaction
 from .artifacts import ArtifactsClient
 from .graphql import GraphQLClient
 from .logging import JobLogger, LogClient
@@ -98,6 +98,10 @@ class Context:
     ) -> None:
         self.nautobot_url = nautobot_url.rstrip("/")
         self._token = token
+        # Register the scoped token with the redactor so it is masked if it ever
+        # reaches a log line or stdout/stderr (SPEC 7.3: tokens never in logs).
+        if token:
+            redaction.register(token)
         self.run_id = run_id
         self.zone = zone
         self.dryrun = dryrun

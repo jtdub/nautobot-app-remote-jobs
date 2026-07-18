@@ -139,7 +139,7 @@ class JobDefinitionRunView(ObjectPermissionRequiredMixin, View):
         return "nautobot_remote_jobs.add_remotejobrun"
 
     def get(self, request, pk):
-        definition = get_object_or_404(models.JobDefinition, pk=pk)
+        definition = get_object_or_404(models.JobDefinition.objects.restrict(request.user, "view"), pk=pk)
         form = forms.build_run_form(definition)
         return render(
             request,
@@ -148,7 +148,7 @@ class JobDefinitionRunView(ObjectPermissionRequiredMixin, View):
         )
 
     def post(self, request, pk):
-        definition = get_object_or_404(models.JobDefinition, pk=pk)
+        definition = get_object_or_404(models.JobDefinition.objects.restrict(request.user, "view"), pk=pk)
         form = forms.build_run_form(definition, data=request.POST)
         if not form.is_valid():
             return render(
@@ -179,7 +179,7 @@ class RemoteJobRunCancelView(ObjectPermissionRequiredMixin, View):
         return "nautobot_remote_jobs.change_remotejobrun"
 
     def post(self, request, pk):
-        run = get_object_or_404(models.RemoteJobRun, pk=pk)
+        run = get_object_or_404(models.RemoteJobRun.objects.restrict(request.user, "change"), pk=pk)
         mode = request.POST.get("mode", CancelModeChoices.GRACEFUL)
         outcome = cancel_run(run, user=request.user, mode=mode)
         messages.info(request, outcome)

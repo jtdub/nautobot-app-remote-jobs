@@ -41,12 +41,29 @@ def validate_batch_limits(entries):
     return None
 
 
-def _dedupe(run_id, kind, client_sequence):
-    """True when this (run, kind, sequence) batch was already ingested."""
+def _dedupe_key(run_id, kind, client_sequence):
+    return f"remote-jobs:ingest:{kind}:{run_id}:{client_sequence}"
+
+
+def _already_ingested(run_id, kind, client_sequence):
+    """True when this (run, kind, sequence) batch was already written."""
     if client_sequence is None:
         return False
-    key = f"remote-jobs:ingest:{kind}:{run_id}:{client_sequence}"
-    return not cache.add(key, 1, timeout=SEQUENCE_DEDUPE_TTL)
+    return cache.get(_dedupe_key(run_id, kind, client_sequence)) is not None
+
+
+def _mark_ingested(run_id, kind, client_sequence):
+    """Record a (run, kind, sequence) batch as written.
+
+    Marked only *after* the DB write commits: marking before the write would
+    turn a mid-write failure into silent data loss, because the client's
+    at-least-once retry of the same sequence would then be dropped as a
+    duplicate. The tiny check-then-mark window can at worst duplicate a batch
+    under concurrent identical retries, which is strictly safer than losing it.
+    """
+    if client_sequence is None:
+        return
+    cache.set(_dedupe_key(run_id, kind, client_sequence), 1, timeout=SEQUENCE_DEDUPE_TTL)
 
 
 def get_run(run_id):
@@ -60,7 +77,7 @@ def get_run(run_id):
 def write_log_batch(run_id, entries, client_sequence=None):
     """Bulk-create JobLogEntry rows from a structured log batch (SPEC 10)."""
     run = get_run(run_id)
-    if _dedupe(run_id, "logs", client_sequence):
+    if _already_ingested(run_id, "logs", client_sequence):
         return 0
     rows = []
     for entry in entries:
@@ -80,13 +97,14 @@ def write_log_batch(run_id, entries, client_sequence=None):
                 row.created = parsed
         rows.append(row)
     JobLogEntry.objects.bulk_create(rows)
+    _mark_ingested(run_id, "logs", client_sequence)
     return len(rows)
 
 
 def write_console_batch(run_id, entries, client_sequence=None):
     """Bulk-create JobConsoleEntry rows from a console output batch (SPEC 10)."""
     run = get_run(run_id)
-    if _dedupe(run_id, "console", client_sequence):
+    if _already_ingested(run_id, "console", client_sequence):
         return 0
     rows = []
     for entry in entries:
@@ -102,4 +120,5 @@ def write_console_batch(run_id, entries, client_sequence=None):
         )
     # timestamp is auto_now_add on JobConsoleEntry; client timestamps are advisory only.
     JobConsoleEntry.objects.bulk_create(rows)
+    _mark_ingested(run_id, "console", client_sequence)
     return len(rows)

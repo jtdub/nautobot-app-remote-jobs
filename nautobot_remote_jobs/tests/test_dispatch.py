@@ -242,3 +242,36 @@ class CancelTest(TestCase):
         self.assertIn("ABANDONED", outcome)
         run.refresh_from_db()
         self.assertEqual(run.state, RunStateChoices.ABANDONED)
+
+    def test_cancel_parent_cancels_children_not_abandon(self):
+        # A fan-out parent (worker=None) must cancel its children, not be
+        # abandoned/re-queued into a zombie (regression: code review #5).
+        from nautobot_remote_jobs.tests.helpers import make_run
+
+        self.definition.retry_max = 2  # would trigger the zombie re-queue if abandoned
+        self.definition.save()
+        parent = make_run(self.definition, user=self.user)
+        parent.state = RunStateChoices.RUNNING
+        parent.save(update_fields=["state"])
+        child = make_run(self.definition, user=self.user, parent=parent)
+        claims.claim_runs(self.worker)  # child -> CLAIMED
+        child.refresh_from_db()
+        self.assertEqual(child.state, RunStateChoices.CLAIMED)
+
+        with mock.patch("nautobot_remote_jobs.dispatch.notify.publish_cancel") as publish:
+            outcome = cancel_run(parent, user=self.user)
+        self.assertIn("child run", outcome)
+        parent.refresh_from_db()
+        # Parent is terminal (not re-queued PENDING) and the child was signalled.
+        self.assertEqual(parent.state, RunStateChoices.TERMINATED)
+        publish.assert_called_once()
+
+    def test_offer_carries_inputs_and_schema(self):
+        # build_job_offer must include inputs + input_schema so the worker can
+        # inject them into the container (regression: code review #1).
+        self.definition.input_schema = {"type": "object", "properties": {"n": {"type": "integer"}}}
+        self.definition.save()
+        submit_run(self.definition, self.user, {"n": 5})
+        offers = claims.claim_runs(self.worker)
+        self.assertEqual(offers[0]["inputs"], {"n": 5})
+        self.assertEqual(offers[0]["input_schema"], self.definition.input_schema)
